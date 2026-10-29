@@ -1,0 +1,28 @@
+# Зависимости
+/node_modules
+/.pnp
+.pnp.*
+
+# Сборка Next.js и кэш компилятора
+/.next/
+/out/
+/build
+
+# Секретные переменные окружения (КРИТИЧНО: никогда не пушить в Git)
+.env
+.env.*
+!.env.example
+
+# Локальные служебные папки хостингов
+.vercel
+.netlify
+
+# TypeScript и системные файлы
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
+Thumbs.db
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*

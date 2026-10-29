@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@layer base {
+  html {
+    /* Отключаем синюю вспышку при тапе в iOS Safari и автоувеличение шрифтов */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-zinc-50 text-zinc-900 antialiased select-none dark:bg-zinc-950 dark:text-zinc-100;
+    /* Предотвращаем резиновый отскок всего окна в режиме Standalone */
+    overscroll-behavior-y: none;
+  }
+
+  /* Разрешаем выделение текста внутри полей ввода и заметок */
+  input,
+  textarea,
+  [contenteditable="true"] {
+    @apply select-text;
+  }
+
+  /* В iOS Safari шрифт меньше 16px в полях ввода вызывает принудительный автозум экрана */
+  @media screen and (max-width: 768px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+}
+
+/* Утилиты Safe Area для iPhone (Dynamic Island / «чёлка» сверху и полоска Home Indicator снизу) */
+@layer utilities {
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .pl-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+
+  .pr-safe {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  /* Отступ основного контента снизу с учетом высоты iOS Tab Bar + нижней полоски жестов */
+  .pb-tabbar-safe {
+    padding-bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
+  }
+}
