@@ -590,7 +590,7 @@ export function BooksAndQuranPageClient({
           <span
             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase ${
               isRealtimeConnected
-                ? 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30'
+                ? 'bg-[#F5BA42]/15 text-[#F5BA42] ring-1 ring-[#F5BA42]/30'
                 : 'bg-white/5 text-[#A8A199]'
             }`}
           >

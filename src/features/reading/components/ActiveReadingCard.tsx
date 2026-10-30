@@ -974,7 +974,7 @@ export function ActiveReadingCard({
                 </span>
               )}
               {notesSaveStatus === 'saved' && (
-                <span className="inline-flex items-center gap-1 text-emerald-400">
+                <span className="inline-flex items-center gap-1 text-[#F5BA42]">
                   <Check className="h-3 w-3" />
                   Сохранено{lastSavedTimeLabel ? ` в ${lastSavedTimeLabel}` : ''}
                 </span>

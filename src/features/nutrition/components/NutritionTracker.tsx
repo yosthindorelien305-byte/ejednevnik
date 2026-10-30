@@ -9,6 +9,7 @@ import {
   Check,
   Flame,
   Info,
+  ExternalLink,
 } from 'lucide-react';
 import {
   DEFAULT_FOOD_CATALOG,
@@ -18,6 +19,7 @@ import {
   type CalculatedMacros,
 } from '@/features/nutrition/utils/macroParser';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { hapticImpact, hapticNotification } from '@/lib/telegram/webapp';
 
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
@@ -137,9 +139,9 @@ export function NutritionTracker({
     );
   }, [loggedMeals]);
 
-  // Прогноз за день (уже съедено + текущий вводимый прием пищи) для живых прогресс-баров
-  const projectedTotals = useMemo<CalculatedMacros>(
-    () => ({
+  // Прогнозируемый дневной итог с учетом текущей заполняемой формы
+  const projectedTotals = useMemo<CalculatedMacros>(() => {
+    return {
       calories:
         Math.round((loggedDayTotals.calories + currentMealTotals.calories) * 10) /
         10,
@@ -150,21 +152,21 @@ export function NutritionTracker({
         Math.round((loggedDayTotals.fats + currentMealTotals.fats) * 10) / 10,
       carbs:
         Math.round((loggedDayTotals.carbs + currentMealTotals.carbs) * 10) / 10,
-    }),
-    [loggedDayTotals, currentMealTotals]
-  );
+    };
+  }, [loggedDayTotals, currentMealTotals]);
 
-  // Запуск парсера текстовой строки рациона
+  // Обработка быстрого текстового ввода («курица 200г, рис 150г, огурец 100г»)
   const handleParseText = () => {
-    if (!quickInput.trim()) return;
+    hapticImpact('medium');
     const parsed = parseMealDescription(quickInput);
     if (parsed.length > 0) {
-      setItems(parsed);
+      setItems((prev) => [...prev, ...parsed]);
+      setQuickInput('');
     }
   };
 
-  // Добавление продукта из быстрого каталога
   const handleAddFromCatalog = () => {
+    hapticImpact('light');
     const found = DEFAULT_FOOD_CATALOG.find((c) => c.id === selectedCatalogId);
     if (!found) return;
 
@@ -204,6 +206,7 @@ export function NutritionTracker({
   };
 
   const adjustWeight = (id: string, delta: number) => {
+    hapticImpact('light');
     setItems((prev) =>
       prev.map((item) =>
         item.id === id
@@ -214,6 +217,7 @@ export function NutritionTracker({
   };
 
   const removeItem = (id: string) => {
+    hapticImpact('light');
     setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
@@ -221,6 +225,7 @@ export function NutritionTracker({
   const handleSaveMeal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (items.length === 0) return;
+    hapticImpact('medium');
 
     const summaryText = items
       .map((i) => `${i.productName} ${i.weightGrams}г`)
@@ -294,30 +299,37 @@ export function NutritionTracker({
       return next;
     });
 
+    hapticNotification('success');
     setItems([]);
     setQuickInput('');
     setRecipeUrl('');
   };
 
   return (
-    <div className="space-y-5">
-      {/* Блок прогресс-баров суточной нормы КБЖУ */}
-      <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      {/* 1. БЛОК ДНЕВНОЙ НОРМЫ КБЖУ В СТИЛЕ FITFUSION DARK LUXURY */}
+      <section className="relative overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-br from-[#26211F] via-[#201C1A] to-[#141211] p-5 shadow-2xl shadow-black/60">
+        {/* Фоновый мягкий блик */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-16 -right-16 h-40 w-40 rounded-full bg-[#F5BA42]/10 blur-3xl"
+        />
+
+        <div className="relative flex items-center justify-between">
           <div>
-            <h2 className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-              <Flame className="h-4 w-4 text-orange-500" />
+            <h2 className="flex items-center gap-1.5 text-xs font-black tracking-wider text-[#FAF7F5] uppercase">
+              <Flame className="h-4 w-4 text-[#F5BA42]" />
               Дневная норма КБЖУ
             </h2>
-            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+            <p className="mt-0.5 text-[11px] text-[#A8A199]">
               Сплошная шкала — съедено, полупрозрачная — текущий ввод
             </p>
           </div>
           <div className="text-right">
-            <span className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+            <span className="font-mono text-2xl font-black text-[#F5BA42] tabular-nums">
               {Math.round(projectedTotals.calories)}
             </span>
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            <span className="font-mono text-xs font-bold text-[#A8A199] tabular-nums">
               {' '}
               / {dailyGoals.calories} ккал
             </span>
@@ -331,8 +343,8 @@ export function NutritionTracker({
           logged={loggedDayTotals.calories}
           projected={projectedTotals.calories}
           goal={dailyGoals.calories}
-          barColor="bg-emerald-500"
-          previewColor="bg-emerald-500/35"
+          barColor="bg-gradient-to-r from-[#F5BA42] via-[#f7cb68] to-[#F5BA42]"
+          previewColor="bg-[#F5BA42]/35"
         />
 
         {/* Прогресс-бары Белков, Жиров и Углеводов */}
@@ -343,8 +355,8 @@ export function NutritionTracker({
             logged={loggedDayTotals.protein}
             projected={projectedTotals.protein}
             goal={dailyGoals.protein}
-            barColor="bg-sky-500"
-            previewColor="bg-sky-500/35"
+            barColor="bg-gradient-to-r from-[#9e2240] via-[#bf2c4f] to-[#7a1830]"
+            previewColor="bg-[#9e2240]/40"
           />
           <MacroProgressBar
             label="Жиры"
@@ -352,8 +364,8 @@ export function NutritionTracker({
             logged={loggedDayTotals.fats}
             projected={projectedTotals.fats}
             goal={dailyGoals.fats}
-            barColor="bg-amber-500"
-            previewColor="bg-amber-500/35"
+            barColor="bg-gradient-to-r from-[#d9942a] via-[#e5aa32] to-[#F5BA42]"
+            previewColor="bg-[#d9942a]/40"
           />
           <MacroProgressBar
             label="Углеводы"
@@ -361,34 +373,37 @@ export function NutritionTracker({
             logged={loggedDayTotals.carbs}
             projected={projectedTotals.carbs}
             goal={dailyGoals.carbs}
-            barColor="bg-violet-500"
-            previewColor="bg-violet-500/35"
+            barColor="bg-gradient-to-r from-[#a35332] via-[#bd623c] to-[#873e21]"
+            previewColor="bg-[#a35332]/40"
           />
         </div>
       </section>
 
-      {/* Форма ввода приема пищи и калькулятор граммовок */}
+      {/* 2. ФОРМА ДОБАВЛЕНИЯ ПРИЕМА ПИЩИ */}
       <form
         onSubmit={handleSaveMeal}
-        className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-xs dark:border-zinc-800 dark:bg-zinc-900"
+        className="space-y-4 rounded-3xl border border-white/5 bg-[#24201E] p-5 shadow-2xl shadow-black/50"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            <Utensils className="h-4 w-4 text-emerald-500" />
+          <h2 className="flex items-center gap-2 text-xs font-black tracking-wider text-[#FAF7F5] uppercase">
+            <Utensils className="h-4 w-4 text-[#F5BA42]" />
             Добавить прием пищи
           </h2>
 
           {/* Переключатель типа приема пищи */}
-          <div className="flex flex-wrap rounded-xl bg-zinc-100 p-0.5 dark:bg-zinc-800">
+          <div className="inline-flex rounded-2xl border border-white/5 bg-[#1E1A18] p-1 shadow-inner">
             {(Object.keys(MEAL_TYPE_LABELS) as MealType[]).map((type) => (
               <button
                 key={type}
                 type="button"
-                onClick={() => setMealType(type)}
-                className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                onClick={() => {
+                  hapticImpact('light');
+                  setMealType(type);
+                }}
+                className={`rounded-xl px-2.5 py-1 text-xs font-bold transition active:scale-95 ${
                   mealType === type
-                    ? 'bg-white text-emerald-700 shadow-2xs dark:bg-zinc-900 dark:text-emerald-400'
-                    : 'text-zinc-600 dark:text-zinc-400'
+                    ? 'bg-[#F5BA42] text-stone-950 shadow-md shadow-[#F5BA42]/15'
+                    : 'text-[#A8A199] hover:text-[#FAF7F5]'
                 }`}
               >
                 {MEAL_TYPE_LABELS[type]}
@@ -397,9 +412,9 @@ export function NutritionTracker({
           </div>
         </div>
 
-        {/* Текстовый экспресс-парсер рациона */}
-        <div className="rounded-xl border border-emerald-500/25 bg-emerald-50/50 p-3 dark:bg-emerald-950/20">
-          <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+        {/* Текстовый экспресс-парсер рациона (бордовая подложка с золотыми акцентами) */}
+        <div className="rounded-2xl border border-[#5B1626]/50 bg-gradient-to-br from-[#29171b] via-[#1E1A18] to-[#141211] p-3.5 shadow-inner">
+          <label className="mb-2 flex items-center gap-1.5 text-xs font-bold text-[#F5BA42]">
             <Sparkles className="h-3.5 w-3.5" />
             Быстрый парсер рациона (через запятую с граммовкой)
           </label>
@@ -409,12 +424,12 @@ export function NutritionTracker({
               value={quickInput}
               onChange={(e) => setQuickInput(e.target.value)}
               placeholder="Напр.: Творог 5% 200г, банан 120г, финики 40г"
-              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              className="w-full rounded-xl border border-white/10 bg-[#141211] px-3.5 py-2.5 text-sm text-[#FAF7F5] placeholder:text-stone-500 focus:border-[#F5BA42] focus:outline-none"
             />
             <button
               type="button"
               onClick={handleParseText}
-              className="shrink-0 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-500 active:scale-95"
+              className="shrink-0 rounded-xl bg-[#F5BA42] px-4 py-2.5 text-xs font-bold text-stone-950 shadow-md shadow-[#F5BA42]/15 transition hover:bg-[#e5aa32] active:scale-95"
             >
               Разобрать БЖУ
             </button>
@@ -426,10 +441,10 @@ export function NutritionTracker({
           <select
             value={selectedCatalogId}
             onChange={(e) => setSelectedCatalogId(e.target.value)}
-            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-medium text-zinc-800 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+            className="w-full rounded-xl border border-white/10 bg-[#1A1615] px-3 py-2.5 text-xs font-medium text-[#FAF7F5] focus:border-[#F5BA42] focus:outline-none"
           >
             {DEFAULT_FOOD_CATALOG.map((food) => (
-              <option key={food.id} value={food.id}>
+              <option key={food.id} value={food.id} className="bg-[#1A1615] text-[#FAF7F5]">
                 {food.name} ({food.caloriesPer100g} ккал / Б:{food.proteinPer100g}{' '}
                 Ж:{food.fatsPer100g} У:{food.carbsPer100g})
               </option>
@@ -438,9 +453,9 @@ export function NutritionTracker({
           <button
             type="button"
             onClick={handleAddFromCatalog}
-            className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-zinc-200 bg-zinc-100 px-3 py-2 text-xs font-semibold text-zinc-800 transition hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+            className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-white/5 bg-[#1E1A18] px-3.5 py-2 text-xs font-bold text-[#FAF7F5] transition hover:border-[#F5BA42]/40 active:scale-95"
           >
-            <Plus className="h-3.5 w-3.5" />В список
+            <Plus className="h-3.5 w-3.5 text-[#F5BA42]" />В список
           </button>
         </div>
 
@@ -453,27 +468,27 @@ export function NutritionTracker({
               return (
                 <div
                   key={item.id}
-                  className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3 dark:border-zinc-800 dark:bg-zinc-800/50"
+                  className="rounded-2xl border border-white/5 bg-[#1E1A18] p-3.5"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                        <span className="text-sm font-bold text-[#FAF7F5]">
                           {item.productName}
                         </span>
                         {!item.matchedFromCatalog && (
                           <span
-                            title="Продукт не найден в базовом словаре — проверьте БЖУ на 100 г"
-                            className="inline-flex items-center gap-0.5 rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300"
+                            title="Продукт не найден в словаре"
+                            className="inline-flex items-center gap-0.5 rounded-md bg-[#5B1626] px-1.5 py-0.5 text-[9px] font-bold text-[#F5BA42]"
                           >
-                            <Info className="h-3 w-3" />
+                            <Info className="h-2.5 w-2.5" />
                             свой БЖУ
                           </span>
                         )}
                       </div>
-                      <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                      <p className="mt-1 font-mono text-[11px] text-[#A8A199] tabular-nums">
                         Порция:{' '}
-                        <strong className="text-zinc-800 dark:text-zinc-200">
+                        <strong className="font-bold text-[#F5BA42]">
                           {macros.calories} ккал
                         </strong>{' '}
                         · Б: {macros.protein}г · Ж: {macros.fats}г · У:{' '}
@@ -485,19 +500,19 @@ export function NutritionTracker({
                       type="button"
                       onClick={() => removeItem(item.id)}
                       aria-label="Удалить продукт"
-                      className="rounded-lg p-1 text-zinc-400 hover:text-red-500"
+                      className="rounded-lg p-1 text-stone-500 transition hover:bg-rose-500/15 hover:text-rose-400"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
 
-                  {/* Управление граммовкой с мгновенным пересчетом */}
-                  <div className="mt-2.5 flex items-center justify-between gap-2">
+                  {/* Управление граммовкой */}
+                  <div className="mt-2.5 flex items-center justify-between gap-2 pt-1 border-t border-white/5">
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
                         onClick={() => adjustWeight(item.id, -25)}
-                        className="rounded-lg bg-zinc-200/80 px-2 py-1 text-xs font-semibold text-zinc-700 active:scale-95 dark:bg-zinc-700 dark:text-zinc-200"
+                        className="rounded-lg border border-white/5 bg-[#24201E] px-2.5 py-1 font-mono text-xs font-bold text-[#FAF7F5] tabular-nums transition hover:border-[#F5BA42]/30 active:scale-95"
                       >
                         -25г
                       </button>
@@ -516,9 +531,9 @@ export function NutritionTracker({
                               e.target.value
                             )
                           }
-                          className="w-full rounded-lg border border-zinc-300 bg-white py-1 pr-6 pl-2 text-center text-sm font-bold text-zinc-900 focus:border-emerald-500 focus:outline-none dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+                          className="w-full rounded-xl border border-white/10 bg-[#141211] py-1 pr-6 pl-2 text-center font-mono text-sm font-bold text-[#FAF7F5] tabular-nums focus:border-[#F5BA42] focus:outline-none"
                         />
-                        <span className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-xs text-zinc-400">
+                        <span className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-xs text-[#A8A199]">
                           г
                         </span>
                       </div>
@@ -526,14 +541,14 @@ export function NutritionTracker({
                       <button
                         type="button"
                         onClick={() => adjustWeight(item.id, 25)}
-                        className="rounded-lg bg-zinc-200/80 px-2 py-1 text-xs font-semibold text-zinc-700 active:scale-95 dark:bg-zinc-700 dark:text-zinc-200"
+                        className="rounded-lg border border-white/5 bg-[#24201E] px-2.5 py-1 font-mono text-xs font-bold text-[#FAF7F5] tabular-nums transition hover:border-[#F5BA42]/30 active:scale-95"
                       >
                         +25г
                       </button>
                     </div>
 
-                    <span className="text-[11px] text-zinc-400">
-                      на 100г: {item.caloriesPer100g} ккал
+                    <span className="font-mono text-[10px] text-[#A8A199] tabular-nums">
+                      100г = {item.caloriesPer100g} ккал
                     </span>
                   </div>
                 </div>
@@ -541,59 +556,65 @@ export function NutritionTracker({
             })}
 
             {/* Итог по текущему приему пищи */}
-            <div className="flex items-center justify-between rounded-xl bg-zinc-100 px-3.5 py-2.5 text-xs dark:bg-zinc-800">
-              <span className="font-medium text-zinc-600 dark:text-zinc-300">
+            <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-[#141211] px-4 py-3 text-xs">
+              <span className="font-bold text-[#A8A199] uppercase tracking-wide">
                 Итого за {MEAL_TYPE_LABELS[mealType].toLowerCase()}:
               </span>
-              <span className="font-bold text-zinc-900 dark:text-zinc-100">
+              <span className="font-mono font-bold text-[#F5BA42] tabular-nums">
                 {currentMealTotals.calories} ккал · Б {currentMealTotals.protein} ·
                 Ж {currentMealTotals.fats} · У {currentMealTotals.carbs}
               </span>
             </div>
           </div>
         ) : (
-          <p className="py-3 text-center text-xs text-zinc-400">
+          <p className="py-3 text-center text-xs text-[#A8A199]">
             Введите рацион строкой выше или выберите продукт из справочника
           </p>
         )}
 
-        {/* Опциональная ссылка на рецепт (YouTube, статья, Telegram-пост) */}
+        {/* Ссылка на рецепт */}
         <div>
           <input
             type="url"
             value={recipeUrl}
             onChange={(e) => setRecipeUrl(e.target.value)}
             placeholder="Ссылка на рецепт (необязательно): https://..."
-            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            className="w-full rounded-2xl border border-white/10 bg-[#1A1615] px-3.5 py-2.5 text-xs text-[#FAF7F5] placeholder:text-stone-500 focus:border-[#F5BA42] focus:outline-none"
           />
         </div>
 
         <button
           type="submit"
           disabled={items.length === 0}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3 text-sm font-semibold text-white transition hover:bg-emerald-500 active:scale-[0.99] disabled:opacity-45"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#F5BA42] py-3.5 text-xs font-black tracking-wider text-stone-950 uppercase shadow-xl shadow-[#F5BA42]/20 transition hover:bg-[#e5aa32] active:scale-[0.98] disabled:opacity-40"
         >
           <Check className="h-4 w-4" />
           Записать в дневник питания
         </button>
       </form>
 
-      {/* История записанных приемов пищи за день */}
+      {/* 3. ИСТОРИЯ ЗАПИСАННЫХ ЗА СЕГОДНЯ ПРИЕМОВ ПИЩИ */}
       {loggedMeals.length > 0 && (
-        <section className="space-y-2">
-          <h3 className="px-1 text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
-            Записано сегодня
-          </h3>
+        <section className="space-y-2.5">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-xs font-black tracking-wider text-[#A8A199] uppercase">
+              Записано сегодня
+            </h3>
+            <span className="font-mono text-[10px] text-[#A8A199] tabular-nums">
+              {loggedMeals.length} приемов
+            </span>
+          </div>
+
           {loggedMeals.map((meal) => (
             <div
               key={meal.id}
-              className="flex items-center justify-between rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-xs dark:border-zinc-800 dark:bg-zinc-900"
+              className="flex items-center justify-between rounded-3xl border border-white/5 bg-[#24201E] px-4 py-3.5 shadow-xl shadow-black/40"
             >
-              <div className="pr-3">
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+              <div className="min-w-0 pr-3">
+                <span className="inline-flex items-center rounded-full bg-[#5B1626] px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#F5BA42]">
                   {MEAL_TYPE_LABELS[meal.mealType]}
                 </span>
-                <p className="mt-0.5 line-clamp-1 text-zinc-600 dark:text-zinc-300">
+                <p className="mt-1 line-clamp-1 text-xs font-medium text-[#FAF7F5]">
                   {meal.title}
                 </p>
                 {meal.recipeUrl && (
@@ -601,17 +622,17 @@ export function NutritionTracker({
                     href={meal.recipeUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-0.5 inline-block text-[11px] font-medium text-emerald-600 underline dark:text-emerald-400"
+                    className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-[#F5BA42] hover:underline"
                   >
-                    Ссылка на рецепт →
+                    Рецепт <ExternalLink className="h-2.5 w-2.5" />
                   </a>
                 )}
               </div>
               <div className="shrink-0 text-right">
-                <p className="font-bold text-zinc-900 dark:text-zinc-100">
+                <p className="font-mono text-sm font-black text-[#F5BA42] tabular-nums">
                   {meal.macros.calories} ккал
                 </p>
-                <p className="text-[11px] text-zinc-400">
+                <p className="font-mono text-[10px] text-[#A8A199] tabular-nums">
                   Б:{meal.macros.protein} Ж:{meal.macros.fats} У:{meal.macros.carbs}
                 </p>
               </div>
@@ -647,24 +668,22 @@ function MacroProgressBar({
   const isOverLimit = projected > safeGoal;
 
   return (
-    <div className="mt-2.5">
-      <div className="mb-1 flex items-baseline justify-between text-xs">
-        <span className="font-medium text-zinc-700 dark:text-zinc-300">
+    <div className="mt-3">
+      <div className="mb-1.5 flex items-baseline justify-between text-xs">
+        <span className="font-bold text-[#FAF7F5] uppercase tracking-wide text-[11px]">
           {label}
         </span>
         <span
-          className={`font-semibold ${
-            isOverLimit
-              ? 'text-rose-600 dark:text-rose-400'
-              : 'text-zinc-600 dark:text-zinc-400'
+          className={`font-mono text-[11px] font-bold tabular-nums ${
+            isOverLimit ? 'text-rose-400' : 'text-[#A8A199]'
           }`}
         >
-          {Math.round(projected * 10) / 10} / {goal} {unit} (
-          {Math.round((projected / safeGoal) * 100)}%)
+          <strong className="text-[#FAF7F5]">{Math.round(projected * 10) / 10}</strong> / {goal} {unit}{' '}
+          <span className="text-[#F5BA42]">({Math.round((projected / safeGoal) * 100)}%)</span>
         </span>
       </div>
 
-      <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+      <div className="relative h-2 w-full overflow-hidden rounded-full bg-[#141211] ring-1 ring-white/5">
         {/* Предпросмотр с учетом редактируемой формы */}
         <div
           style={{ width: `${projectedPct}%` }}
