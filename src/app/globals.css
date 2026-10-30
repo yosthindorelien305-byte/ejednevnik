@@ -88,3 +88,29 @@
     padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
   }
 }
+
+/* Полное скрытие виджетов, бейджей, drawer и «Powered by Netlify» */
+netlify-drawer,
+[data-netlify-drawer],
+#netlify-drawer,
+iframe[src*="netlify"],
+iframe[id*="netlify"],
+div[class*="netlify-drawer"],
+div[id*="netlify"],
+.netlify-badge,
+a[href*="netlify.com"][class*="badge"],
+a[href*="netlify.com"][class*="powered"],
+[data-netlify-feedback],
+#netlify-notification,
+.netlify-feedback-badge {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: absolute !important;
+  left: -9999px !important;
+  top: -9999px !important;
+  z-index: -9999 !important;
+}

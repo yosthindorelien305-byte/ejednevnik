@@ -5,6 +5,16 @@
 [build.environment]
   NODE_VERSION = "20"
   NEXT_TELEMETRY_DISABLED = "1"
+  NETLIFY_DISABLE_DRAWER = "true"
+
+[context.production.environment]
+  NETLIFY_DISABLE_DRAWER = "true"
+
+[context.deploy-preview.environment]
+  NETLIFY_DISABLE_DRAWER = "true"
+
+[context.branch-deploy.environment]
+  NETLIFY_DISABLE_DRAWER = "true"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
