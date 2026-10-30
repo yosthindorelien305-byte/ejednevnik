@@ -49,10 +49,23 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Гарантируем наличие ключевых колонок при накате миграции на ранее созданную БД
+-- Гарантируем наличие всех ключевых колонок при накате поверх шаблона Supabase (User Management Starter) или старой схемы
 ALTER TABLE public.profiles
     ADD COLUMN IF NOT EXISTS telegram_id BIGINT UNIQUE,
-    ADD COLUMN IF NOT EXISTS sync_token TEXT UNIQUE DEFAULT upper(substr(replace(gen_random_uuid()::TEXT, '-', ''), 1, 10));
+    ADD COLUMN IF NOT EXISTS sync_token TEXT UNIQUE DEFAULT upper(substr(replace(gen_random_uuid()::TEXT, '-', ''), 1, 10)),
+    ADD COLUMN IF NOT EXISTS display_name TEXT,
+    ADD COLUMN IF NOT EXISTS timezone TEXT NOT NULL DEFAULT 'Europe/Moscow',
+    ADD COLUMN IF NOT EXISTS daily_calories_goal INTEGER NOT NULL DEFAULT 2200,
+    ADD COLUMN IF NOT EXISTS daily_protein_goal NUMERIC(6, 1) NOT NULL DEFAULT 150.0,
+    ADD COLUMN IF NOT EXISTS daily_fats_goal NUMERIC(6, 1) NOT NULL DEFAULT 70.0,
+    ADD COLUMN IF NOT EXISTS daily_carbs_goal NUMERIC(6, 1) NOT NULL DEFAULT 240.0,
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
+-- Заполняем пустые sync_token, если строки в profiles были созданы раньше без токена
+UPDATE public.profiles
+SET sync_token = upper(substr(replace(gen_random_uuid()::TEXT, '-', ''), 1, 10))
+WHERE sync_token IS NULL;
 
 COMMENT ON TABLE public.profiles IS 'Профиль пользователя с уникальным telegram_id и кодом привязки sync_token';
 

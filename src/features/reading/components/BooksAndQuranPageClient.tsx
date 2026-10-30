@@ -394,6 +394,24 @@ export function BooksAndQuranPageClient({
             ])
           );
           setSelectedId(created.id);
+
+          // Отправляем уведомление в Telegram-бот о создании новой книги или суры
+          void fetch('/api/telegram/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'reading',
+              userId,
+              data: {
+                category: created.category,
+                title: created.title,
+                currentPosition: created.current_position,
+                totalTarget: created.total_target,
+                notes: created.notes,
+                resourceUrls: created.resource_urls,
+              },
+            }),
+          }).catch(() => null);
         }
       } else {
         const localItem = normalizeRow({

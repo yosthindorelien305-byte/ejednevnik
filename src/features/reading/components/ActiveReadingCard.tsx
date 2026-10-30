@@ -136,6 +136,8 @@ export function ActiveReadingCard({
     null
   );
   const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const telegramTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isTelegramSent, setIsTelegramSent] = useState<boolean>(false);
   const isNotesDirtyRef = useRef<boolean>(false);
   const [isHydrated, setIsHydrated] = useState<boolean>(false);
 
@@ -247,6 +249,36 @@ export function ActiveReadingCard({
     return Math.min(100, Math.round((localPosition / safeTarget) * 1000) / 10);
   }, [localPosition, item.total_target]);
 
+  // Отправка отчета о прогрессе чтения книги/Корана в Telegram-бот
+  const sendTelegramReport = useCallback(
+    async (pos: number, notesOverride?: string | null) => {
+      if (!userId || item.id.startsWith('demo-')) return;
+      try {
+        await fetch('/api/telegram/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'reading',
+            userId,
+            data: {
+              category: item.category,
+              title: item.title,
+              currentPosition: pos,
+              totalTarget: item.total_target,
+              notes: notesOverride !== undefined ? notesOverride : localNotes,
+              resourceUrls: item.resource_urls,
+            },
+          }),
+        });
+        setIsTelegramSent(true);
+        setTimeout(() => setIsTelegramSent(false), 3000);
+      } catch {
+        // Ошибку сети игнорируем
+      }
+    },
+    [userId, item.id, item.category, item.title, item.total_target, item.resource_urls, localNotes]
+  );
+
   // Дебаунс-фиксация новой страницы / аята в Supabase
   const schedulePositionSave = useCallback(
     (nextPos: number) => {
@@ -257,6 +289,9 @@ export function ActiveReadingCard({
       if (positionTimerRef.current) {
         clearTimeout(positionTimerRef.current);
       }
+      if (telegramTimerRef.current) {
+        clearTimeout(telegramTimerRef.current);
+      }
 
       positionTimerRef.current = setTimeout(async () => {
         isDraggingPositionRef.current = false;
@@ -266,8 +301,13 @@ export function ActiveReadingCard({
         });
         setPositionSaveStatus(ok ? 'saved' : 'error');
       }, 320);
+
+      // Через 1.5 секунды после остановки ползунка отправляем структурированное сообщение в бот
+      telegramTimerRef.current = setTimeout(() => {
+        void sendTelegramReport(clamped);
+      }, 1500);
     },
-    [item.id, item.total_target, onPatchItem]
+    [item.id, item.total_target, onPatchItem, sendTelegramReport]
   );
 
   // Добавление полезной ссылки на статью или толкование (тафсир)
@@ -617,7 +657,7 @@ export function ActiveReadingCard({
               </span>
             </div>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               {[-1, 1, 5, 15].map((delta) => (
                 <button
                   key={delta}
@@ -628,6 +668,30 @@ export function ActiveReadingCard({
                   {delta > 0 ? `+${delta}` : delta}
                 </button>
               ))}
+
+              <button
+                type="button"
+                onClick={() => void sendTelegramReport(localPosition)}
+                disabled={isTelegramSent}
+                className={`inline-flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition active:scale-95 ${
+                  isTelegramSent
+                    ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                    : 'bg-sky-500/15 text-sky-700 hover:bg-sky-500/25 dark:text-sky-300'
+                }`}
+                title="Отправить текущий отчет о прочитанном в Telegram"
+              >
+                {isTelegramSent ? (
+                  <>
+                    <Check className="h-3.5 w-3.5" />
+                    В боте!
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-3.5 w-3.5" />
+                    В бот
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </section>

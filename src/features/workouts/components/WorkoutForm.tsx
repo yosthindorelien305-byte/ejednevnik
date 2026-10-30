@@ -379,6 +379,24 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
                 .insert(setsRows);
               if (sErr) throw new Error(sErr.message);
             }
+
+            // Отправляем структурированное сообщение со всеми упражнениями в Telegram-бот
+            void fetch('/api/telegram/notify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'workout',
+                userId: user.id,
+                data: {
+                  title: payload.title,
+                  workoutDate: payload.workoutDate,
+                  totalTonnage: stats.totalTonnage,
+                  wellbeingRating: payload.wellbeingRating,
+                  wellbeingNotes: payload.wellbeingNotes,
+                  exercises: payload.exercises,
+                },
+              }),
+            }).catch(() => null);
           }
         }
       }

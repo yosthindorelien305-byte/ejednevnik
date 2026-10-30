@@ -235,6 +235,25 @@ export function NutritionTracker({
             recipe_url: recipeUrl.trim() || null,
             last_updated_by: 'web',
           });
+
+          // Отправляем структурированное сообщение о КБЖУ в Telegram-бот
+          void fetch('/api/telegram/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'nutrition',
+              userId: user.id,
+              data: {
+                mealType,
+                description: summaryText,
+                calories: currentMealTotals.calories,
+                protein: currentMealTotals.protein,
+                fats: currentMealTotals.fats,
+                carbs: currentMealTotals.carbs,
+                recipeUrl: recipeUrl.trim() || undefined,
+              },
+            }),
+          }).catch(() => null);
         }
       }
     }
