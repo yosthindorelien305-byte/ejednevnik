@@ -17,6 +17,11 @@ import {
 } from 'lucide-react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { hapticImpact, hapticNotification } from '@/lib/telegram/webapp';
+import {
+  saveLocalCachedWorkouts,
+  getLocalCachedWorkouts,
+  type WorkoutHistoryItem,
+} from './WorkoutHistory';
 
 // Типы тренировки в соответствии с ENUM workout_type в Supabase
 export type WorkoutType =
@@ -67,6 +72,7 @@ export interface WorkoutSubmitPayload {
 
 interface WorkoutFormProps {
   onSubmitWorkout?: (payload: WorkoutSubmitPayload) => Promise<void> | void;
+  onSubmitSuccess?: () => void;
 }
 
 const WORKOUT_TYPE_LABELS: Record<WorkoutType, string> = {
@@ -84,7 +90,7 @@ const createId = () =>
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2, 11);
 
-export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
+export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormProps) {
   const [workoutDate, setWorkoutDate] = useState<string>('');
   const [workoutType, setWorkoutType] = useState<WorkoutType>('strength');
   const [title, setTitle] = useState<string>('Тяжелый верх');
@@ -392,7 +398,33 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
               if (sErr) throw new Error(sErr.message);
             }
 
-            // Отправляем структурированный отчет в Telegram-бот
+            // Сохраняем в постоянный локальный кэш
+            const cachedItem: WorkoutHistoryItem = {
+              id: createdWorkout?.id || `local-${createId()}`,
+              workout_date:
+                payload.workoutDate ||
+                new Intl.DateTimeFormat('en-CA').format(new Date()),
+              title: payload.title,
+              notes: combinedNotes || null,
+              photo_urls: uploadedPhotoRefs,
+              total_tonnage: stats.totalTonnage,
+              workout_sets: payload.exercises.map((ex, idx) => ({
+                id: `set-${idx}`,
+                exercise_name: ex.exerciseName,
+                sets_count: ex.setsCount,
+                reps: ex.repsCount,
+                weight_kg: ex.workingWeight,
+                tonnage: ex.exerciseTonnage ?? 0,
+              })),
+              created_at: new Date().toISOString(),
+            };
+            const curWorkouts = getLocalCachedWorkouts();
+            saveLocalCachedWorkouts([
+              cachedItem,
+              ...curWorkouts.filter((w) => w.id !== cachedItem.id),
+            ]);
+
+            // Отправляем структурированный отчет в Telegram-бот с прикрепленными фото
             void fetch('/api/telegram/notify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -406,6 +438,59 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
                   wellbeingRating: payload.wellbeingRating,
                   wellbeingNotes: payload.wellbeingNotes,
                   exercises: payload.exercises,
+                  photoUrls: uploadedPhotoRefs,
+                },
+              }),
+            }).catch(() => null);
+          } else {
+            // Пользователь оффлайн или сессия не подгрузилась: сохраняем в локальный кэш
+            const combinedNotes = [
+              payload.wellbeingNotes,
+              payload.bodyWeight ? `Вес тела: ${payload.bodyWeight} кг` : '',
+              `Самочувствие: ${payload.wellbeingRating}/10`,
+            ]
+              .filter(Boolean)
+              .join(' · ');
+
+            const localItem: WorkoutHistoryItem = {
+              id: `local-${createId()}`,
+              workout_date:
+                payload.workoutDate ||
+                new Intl.DateTimeFormat('en-CA').format(new Date()),
+              title: payload.title,
+              notes: combinedNotes || null,
+              photo_urls: [],
+              total_tonnage: stats.totalTonnage,
+              workout_sets: payload.exercises.map((ex, idx) => ({
+                id: `set-local-${idx}`,
+                exercise_name: ex.exerciseName,
+                sets_count: ex.setsCount,
+                reps: ex.repsCount,
+                weight_kg: ex.workingWeight,
+                tonnage: ex.exerciseTonnage ?? 0,
+              })),
+              created_at: new Date().toISOString(),
+            };
+            const curWorkouts = getLocalCachedWorkouts();
+            saveLocalCachedWorkouts([
+              localItem,
+              ...curWorkouts.filter((w) => w.id !== localItem.id),
+            ]);
+
+            // Отправляем в Telegram-бот
+            void fetch('/api/telegram/notify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'workout',
+                data: {
+                  title: payload.title,
+                  workoutDate: payload.workoutDate,
+                  totalTonnage: stats.totalTonnage,
+                  wellbeingRating: payload.wellbeingRating,
+                  wellbeingNotes: payload.wellbeingNotes,
+                  exercises: payload.exercises,
+                  photoUrls: [],
                 },
               }),
             }).catch(() => null);
@@ -416,6 +501,8 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
       setSubmitError(null);
       setSavedBanner(true);
       hapticNotification('success');
+      onSubmitSuccess?.();
+      setPhotos([]);
       setTimeout(() => setSavedBanner(false), 4500);
     } catch (err) {
       setSubmitError(

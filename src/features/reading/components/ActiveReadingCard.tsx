@@ -19,6 +19,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { hapticImpact, hapticNotification } from '@/lib/telegram/webapp';
 import type { AutoSaveStatus, BooksAndQuranRow } from '@/features/reading/types';
 
 interface PendingUploadPreview {
@@ -275,16 +276,18 @@ export function ActiveReadingCard({
               totalTarget: item.total_target,
               notes: notesOverride !== undefined ? notesOverride : localNotes,
               resourceUrls: item.resource_urls,
+              mediaUrls: item.media_urls,
             },
           }),
         });
+        hapticNotification('success');
         setIsTelegramSent(true);
         setTimeout(() => setIsTelegramSent(false), 3000);
       } catch {
         // Ошибку сети игнорируем
       }
     },
-    [userId, item.id, item.category, item.title, item.total_target, item.resource_urls, localNotes]
+    [userId, item.id, item.category, item.title, item.total_target, item.resource_urls, item.media_urls, localNotes]
   );
 
   // Дебаунс-фиксация новой страницы / аята в Supabase
@@ -293,6 +296,7 @@ export function ActiveReadingCard({
       const clamped = Math.max(0, Math.min(item.total_target, nextPos));
       setLocalPosition(clamped);
       setPositionSaveStatus('saving');
+      hapticImpact('light');
 
       if (positionTimerRef.current) {
         clearTimeout(positionTimerRef.current);
@@ -371,6 +375,7 @@ export function ActiveReadingCard({
     const fileList = e.target.files;
     if (!fileList || fileList.length === 0) return;
 
+    hapticImpact('medium');
     setUploadError(null);
     const files = Array.from(fileList);
     e.target.value = '';
@@ -389,7 +394,15 @@ export function ActiveReadingCard({
     const newThumbMap: Record<string, string> = {};
 
     try {
-      if (supabase && userId) {
+      let currentUid = userId;
+      if (!currentUid && supabase) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        currentUid = user?.id ?? null;
+      }
+
+      if (supabase && currentUid) {
         const yearMonth = new Date().toISOString().slice(0, 7);
 
         for (let i = 0; i < files.length; i++) {
@@ -398,28 +411,40 @@ export function ActiveReadingCard({
           const ext = (file.name.split('.').pop() || 'jpg')
             .toLowerCase()
             .replace(/[^a-z0-9]/g, '');
-          const objectPath = `${userId}/${item.category}/${yearMonth}/${crypto.randomUUID()}.${
+          const objectPath = `${currentUid}/${item.category}/${yearMonth}/${crypto.randomUUID()}.${
             ext || 'jpg'
           }`;
 
-          const { error } = await supabase.storage
+          const { error: quranErr } = await supabase.storage
             .from('quran-pages')
             .upload(objectPath, file, {
               contentType: file.type || 'image/jpeg',
               upsert: false,
             });
 
-          if (error) {
-            throw new Error(error.message);
-          }
+          if (!quranErr) {
+            const storageRef = `quran-pages/${objectPath}`;
+            uploadedRefs.push(storageRef);
+            newThumbMap[storageRef] = previewItem.previewUrl;
+          } else {
+            // Фолбэк на бакет diary-media
+            const { error: diaryErr } = await supabase.storage
+              .from('diary-media')
+              .upload(objectPath, file, {
+                contentType: file.type || 'image/jpeg',
+                upsert: false,
+              });
 
-          const storageRef = `quran-pages/${objectPath}`;
-          uploadedRefs.push(storageRef);
-          // Используем локальный Object URL для мгновенного рендера без повторного скачивания
-          newThumbMap[storageRef] = previewItem.previewUrl;
+            if (diaryErr) {
+              throw new Error(quranErr.message || diaryErr.message);
+            }
+            const storageRef = `diary-media/${objectPath}`;
+            uploadedRefs.push(storageRef);
+            newThumbMap[storageRef] = previewItem.previewUrl;
+          }
         }
       } else {
-        // Локальный демо-режим без авторизации: сохраняем blob-превью в состоянии карточки
+        // Локальный режим без авторизации: сохраняем blob-превью в состоянии карточки
         optimisticPreviews.forEach((p) => {
           uploadedRefs.push(p.previewUrl);
           newThumbMap[p.previewUrl] = p.previewUrl;
@@ -433,10 +458,34 @@ export function ActiveReadingCard({
         media_urls: nextMedia,
         last_updated_by: 'web',
       });
+
+      // МГНОВЕННАЯ ОТПРАВКА ЗАГРУЖЕННОГО СКРИНШОТА В TELEGRAM-БОТ
+      if (uploadedRefs.length > 0) {
+        hapticNotification('success');
+        void fetch('/api/telegram/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'reading',
+            userId: currentUid,
+            data: {
+              category: item.category,
+              title: item.title,
+              currentPosition: localPosition,
+              totalTarget: item.total_target,
+              notes: localNotes,
+              resourceUrls: item.resource_urls,
+              mediaUrls: uploadedRefs,
+              isNewScreenshot: true,
+            },
+          }),
+        }).catch(() => null);
+      }
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Ошибка загрузки скриншота';
       setUploadError(message);
+      hapticNotification('error');
       // Освобождаем временные URL только при неуспешной загрузке
       optimisticPreviews.forEach((p) => URL.revokeObjectURL(p.previewUrl));
     } finally {
@@ -524,43 +573,43 @@ export function ActiveReadingCard({
   }, [item.updated_at, isHydrated]);
 
   return (
-    <article className="overflow-hidden rounded-3xl border border-zinc-200/90 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-      {/* Верхняя шапка активной книги / суры */}
-      <div
-        className={`p-5 ${
-          isQuran
-            ? 'bg-gradient-to-br from-emerald-950 via-teal-950 to-zinc-900 text-white'
-            : 'bg-gradient-to-br from-sky-950 via-slate-900 to-zinc-900 text-white'
-        }`}
-      >
-        <div className="flex flex-wrap items-center justify-between gap-2">
+    <article className="overflow-hidden rounded-3xl border border-white/5 bg-[#24201E] shadow-2xl shadow-black/60">
+      {/* Верхняя шапка активной книги / суры в стиле FitFusion Dark Luxury */}
+      <div className="relative overflow-hidden border-b border-white/5 bg-gradient-to-br from-[#26211F] via-[#201C1A] to-[#141211] p-5 text-white">
+        {/* Фоновый декоративный блик */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-16 -right-16 h-40 w-40 rounded-full bg-[#F5BA42]/10 blur-3xl"
+        />
+
+        <div className="relative flex flex-wrap items-center justify-between gap-2">
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black tracking-wider uppercase ${
               isQuran
-                ? 'bg-emerald-500/20 text-emerald-300'
-                : 'bg-sky-500/20 text-sky-300'
+                ? 'bg-[#5B1626] text-[#F5BA42] ring-1 ring-[#F5BA42]/20'
+                : 'bg-[#F5BA42] text-stone-950'
             }`}
           >
             {isQuran ? (
-              <Sparkles className="h-3.5 w-3.5" />
+              <Sparkles className="h-3 w-3" />
             ) : (
-              <BookOpen className="h-3.5 w-3.5" />
+              <BookOpen className="h-3 w-3" />
             )}
-            {isQuran ? 'Активная сура · Коран' : 'Активная книга'}
+            {isQuran ? 'Коран · Активная сура' : 'Активная книга'}
           </span>
 
-          {/* Индикатор источника последнего обновления (Сайт или Telegram-бот) */}
+          {/* Индикатор источника последнего обновления */}
           <div className="flex items-center gap-1.5">
             {item.last_updated_by === 'telegram' ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-sky-400/20 px-2.5 py-1 text-[11px] font-medium text-sky-200 ring-1 ring-sky-400/30">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#F5BA42]/15 px-2.5 py-1 text-[11px] font-bold text-[#F5BA42] ring-1 ring-[#F5BA42]/30">
                 <Send className="h-3 w-3" />
                 Из Telegram {formattedUpdatedAt && `· ${formattedUpdatedAt}`}
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[11px] text-zinc-300">
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2.5 py-1 text-[11px] text-[#A8A199]">
                 <span
                   className={`h-1.5 w-1.5 rounded-full ${
-                    isRealtimeConnected ? 'bg-emerald-400' : 'bg-amber-400'
+                    isRealtimeConnected ? 'bg-[#F5BA42]' : 'bg-stone-500'
                   }`}
                 />
                 {formattedUpdatedAt
@@ -571,59 +620,51 @@ export function ActiveReadingCard({
           </div>
         </div>
 
-        <div className="mt-3 flex items-end justify-between gap-4">
+        <div className="relative mt-3.5 flex items-end justify-between gap-4">
           <div className="min-w-0">
-            <h2 className="truncate text-xl font-bold tracking-tight">
+            <h2 className="truncate text-xl font-black tracking-tight text-[#FAF7F5] uppercase">
               {item.title}
             </h2>
-            <p className="mt-0.5 text-xs text-zinc-300">
+            <p className="mt-0.5 text-xs text-[#A8A199]">
               {unitLabel}{' '}
-              <strong className="font-semibold text-white">
+              <strong className="font-mono font-bold text-[#FAF7F5] tabular-nums">
                 {localPosition}
               </strong>{' '}
-              из {item.total_target}
+              из <span className="font-mono tabular-nums">{item.total_target}</span> {unitGenitiveLabel}
             </p>
           </div>
 
           <div className="text-right">
-            <span
-              className={`text-2xl font-extrabold tabular-nums ${
-                isQuran ? 'text-emerald-300' : 'text-sky-300'
-              }`}
-            >
+            <span className="font-mono text-3xl font-black tracking-tight text-[#F5BA42] tabular-nums">
               {progressPercent}%
             </span>
           </div>
         </div>
 
-        {/* Визуальная шкала прогресса */}
-        <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-white/15">
+        {/* Золотая шкала прогресса */}
+        <div className="relative mt-3.5 h-2 w-full overflow-hidden rounded-full bg-[#141211] ring-1 ring-white/5">
           <div
             style={{ width: `${progressPercent}%` }}
-            className={`h-full rounded-full transition-all duration-200 ${
-              isQuran
-                ? 'bg-gradient-to-r from-emerald-400 to-teal-300'
-                : 'bg-gradient-to-r from-sky-400 to-indigo-300'
-            }`}
+            className="h-full rounded-full bg-gradient-to-r from-[#F5BA42] via-[#f7cb68] to-[#F5BA42] transition-all duration-300"
           />
         </div>
       </div>
 
       {/* Тело карточки с 4 интерактивными блоками */}
-      <div className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
-        {/* БЛОК 1. Ползунок и точный числовой ввод текущей страницы / аята */}
-        <section className="space-y-3 p-4 sm:p-5">
+      <div className="divide-y divide-white/5">
+        {/* БЛОК 1. Ползунок и числовой ввод */}
+        <section className="space-y-3.5 p-4 sm:p-5">
           <div className="flex items-center justify-between gap-2">
             <label
               htmlFor={`position-input-${item.id}`}
-              className="text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:text-zinc-400"
+              className="text-[11px] font-bold tracking-wider text-[#A8A199] uppercase"
             >
               Текущая позиция ({unitLabel.toLowerCase()})
             </label>
 
-            <span className="text-[11px] text-zinc-400">
-              {positionSaveStatus === 'saving' && 'Сохраняем позицию...'}
-              {positionSaveStatus === 'saved' && '✓ Позиция сохранена'}
+            <span className="text-[11px] text-[#A8A199]">
+              {positionSaveStatus === 'saving' && 'Сохраняем...'}
+              {positionSaveStatus === 'saved' && '✓ Сохранено'}
               {positionSaveStatus === 'error' && 'Ошибка сохранения'}
             </span>
           </div>
@@ -639,9 +680,7 @@ export function ActiveReadingCard({
               isDraggingPositionRef.current = true;
             }}
             onChange={(e) => schedulePositionSave(Number(e.target.value))}
-            className={`h-2.5 w-full cursor-pointer appearance-none rounded-lg bg-zinc-200 dark:bg-zinc-800 ${
-              isQuran ? 'accent-emerald-500' : 'accent-sky-500'
-            }`}
+            className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-[#141211] accent-[#F5BA42]"
           />
 
           {/* Числовой инпут + быстрые шаги */}
@@ -658,10 +697,10 @@ export function ActiveReadingCard({
                   const parsed = parseInt(e.target.value, 10);
                   schedulePositionSave(Number.isNaN(parsed) ? 0 : parsed);
                 }}
-                className="w-24 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-center text-base font-bold text-zinc-900 tabular-nums focus:border-emerald-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                className="w-24 rounded-xl border border-white/10 bg-[#1A1615] px-3 py-2 text-center font-mono text-base font-bold text-[#FAF7F5] tabular-nums focus:border-[#F5BA42] focus:outline-none"
               />
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                из {item.total_target} {unitGenitiveLabel}
+              <span className="text-xs text-[#A8A199]">
+                из <span className="font-mono">{item.total_target}</span> {unitGenitiveLabel}
               </span>
             </div>
 
@@ -671,7 +710,7 @@ export function ActiveReadingCard({
                   key={delta}
                   type="button"
                   onClick={() => schedulePositionSave(localPosition + delta)}
-                  className="rounded-xl border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-xs font-semibold text-zinc-700 transition hover:border-emerald-500/50 active:scale-95 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                  className="rounded-xl border border-white/5 bg-[#1E1A18] px-2.5 py-1.5 font-mono text-xs font-bold text-[#FAF7F5] tabular-nums transition hover:border-[#F5BA42]/40 active:scale-95"
                 >
                   {delta > 0 ? `+${delta}` : delta}
                 </button>
@@ -681,10 +720,10 @@ export function ActiveReadingCard({
                 type="button"
                 onClick={() => void sendTelegramReport(localPosition)}
                 disabled={isTelegramSent}
-                className={`inline-flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition active:scale-95 ${
+                className={`inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition active:scale-95 ${
                   isTelegramSent
-                    ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                    : 'bg-sky-500/15 text-sky-700 hover:bg-sky-500/25 dark:text-sky-300'
+                    ? 'bg-[#F5BA42]/20 text-[#F5BA42]'
+                    : 'bg-[#F5BA42] text-stone-950 shadow-md shadow-[#F5BA42]/15 hover:bg-[#e5aa32]'
                 }`}
                 title="Отправить текущий отчет о прочитанном в Telegram"
               >
@@ -704,16 +743,16 @@ export function ActiveReadingCard({
           </div>
         </section>
 
-        {/* БЛОК 2. Поле добавления ссылок на статьи, конспекты или толкования (тафсир) */}
+        {/* БЛОК 2. Поле добавления ссылок */}
         <section className="space-y-3 p-4 sm:p-5">
           <div className="flex items-center justify-between">
-            <h3 className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
-              <Link2 className="h-3.5 w-3.5 text-emerald-500" />
+            <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-[#A8A199] uppercase">
+              <Link2 className="h-3.5 w-3.5 text-[#F5BA42]" />
               {isQuran
                 ? 'Ссылки на тафсир и разборы'
                 : 'Ссылки на статьи и конспекты'}
             </h3>
-            <span className="text-[11px] text-zinc-400">
+            <span className="font-mono text-[11px] text-[#A8A199]">
               {item.resource_urls.length} шт.
             </span>
           </div>
@@ -728,12 +767,12 @@ export function ActiveReadingCard({
                   ? 'https://quran.com/... или статья с тафсиром'
                   : 'https://... статья, разбор или заметка'
               }
-              className="min-w-0 flex-1 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#1A1615] px-3.5 py-2.5 text-sm text-[#FAF7F5] placeholder:text-stone-500 focus:border-[#F5BA42] focus:outline-none"
             />
             <button
               type="submit"
               disabled={isSavingLink || !newLinkUrl.trim()}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-emerald-500 disabled:opacity-50 active:scale-95"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-[#F5BA42] px-3.5 py-2.5 text-xs font-bold text-stone-950 shadow-md shadow-[#F5BA42]/15 transition hover:bg-[#e5aa32] disabled:opacity-50 active:scale-95"
             >
               {isSavingLink ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -745,7 +784,7 @@ export function ActiveReadingCard({
           </form>
 
           {linkError && (
-            <p className="flex items-center gap-1.5 text-xs text-rose-500">
+            <p className="flex items-center gap-1.5 text-xs text-rose-400">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
               {linkError}
             </p>
@@ -756,17 +795,17 @@ export function ActiveReadingCard({
               {item.resource_urls.map((url) => (
                 <li
                   key={url}
-                  className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200/80 bg-zinc-50/70 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-800/50"
+                  className="flex items-center justify-between gap-2 rounded-xl border border-white/5 bg-[#1E1A18] px-3 py-2"
                 >
                   <a
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex min-w-0 flex-1 items-center gap-2 text-xs font-medium text-emerald-700 hover:underline dark:text-emerald-400"
+                    className="flex min-w-0 flex-1 items-center gap-2 text-xs font-medium text-[#F5BA42] hover:underline"
                   >
                     <ExternalLink className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">{url}</span>
-                    <span className="hidden shrink-0 rounded-md bg-zinc-200/70 px-1.5 py-0.5 text-[10px] text-zinc-600 sm:inline dark:bg-zinc-700 dark:text-zinc-300">
+                    <span className="hidden shrink-0 rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] text-[#A8A199] sm:inline">
                       {formatLinkHostname(url)}
                     </span>
                   </a>
@@ -775,7 +814,7 @@ export function ActiveReadingCard({
                     type="button"
                     onClick={() => handleRemoveResourceLink(url)}
                     aria-label="Удалить ссылку"
-                    className="rounded-lg p-1 text-zinc-400 transition hover:bg-rose-500/10 hover:text-rose-500"
+                    className="rounded-lg p-1 text-stone-500 transition hover:bg-rose-500/15 hover:text-rose-400"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -783,26 +822,24 @@ export function ActiveReadingCard({
               ))}
             </ul>
           ) : (
-            <p className="text-xs text-zinc-400">
-              Ссылок пока нет. Добавьте материал выше или отправьте ссылку с
-              комментарием в Telegram-бота.
+            <p className="text-xs text-[#A8A199]/70">
+              Ссылок пока нет. Добавьте полезный материал или отправьте ссылку в Telegram-бота.
             </p>
           )}
         </section>
 
-        {/* БЛОК 3. Загрузка скриншотов страниц с предпросмотром миниатюр */}
+        {/* БЛОК 3. Загрузка скриншотов страниц */}
         <section className="space-y-3 p-4 sm:p-5">
           <div className="flex items-center justify-between">
-            <h3 className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
-              <Camera className="h-3.5 w-3.5 text-emerald-500" />
-              Скриншоты страниц и фото
+            <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-[#A8A199] uppercase">
+              <Camera className="h-3.5 w-3.5 text-[#F5BA42]" />
+              Скриншоты страниц (автоотправка в бот)
             </h3>
-            <span className="text-[11px] text-zinc-400">
-              {item.media_urls.length + pendingUploads.length} снимков
+            <span className="font-mono text-[11px] text-[#A8A199]">
+              {item.media_urls.length + pendingUploads.length} шт.
             </span>
           </div>
 
-          {/* Нативные скрытые инпуты для iOS Safari / Standalone PWA */}
           <input
             ref={galleryInputRef}
             type="file"
@@ -824,7 +861,7 @@ export function ActiveReadingCard({
             <button
               type="button"
               onClick={() => galleryInputRef.current?.click()}
-              className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-emerald-500/50 bg-emerald-500/5 px-3 py-3 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-500/10 active:scale-98 dark:text-emerald-300"
+              className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-[#F5BA42]/40 bg-[#F5BA42]/5 px-3 py-3 text-xs font-bold text-[#F5BA42] transition hover:bg-[#F5BA42]/10 active:scale-98"
             >
               <ImagePlus className="h-4 w-4 shrink-0" />
               Загрузить скриншот
@@ -833,28 +870,27 @@ export function ActiveReadingCard({
             <button
               type="button"
               onClick={() => cameraInputRef.current?.click()}
-              className="flex items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 px-3 py-3 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-100 active:scale-98 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+              className="flex items-center justify-center gap-2 rounded-2xl border border-white/5 bg-[#1E1A18] px-3 py-3 text-xs font-bold text-[#FAF7F5] transition hover:border-[#F5BA42]/30 active:scale-98"
             >
-              <Camera className="h-4 w-4 shrink-0 text-emerald-500" />
+              <Camera className="h-4 w-4 shrink-0 text-[#F5BA42]" />
               Снять страницу
             </button>
           </div>
 
           {uploadError && (
-            <p className="flex items-center gap-1.5 text-xs text-rose-500">
+            <p className="flex items-center gap-1.5 text-xs text-rose-400">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
               {uploadError}
             </p>
           )}
 
-          {/* Сетка миниатюр сохраненных и загружаемых скриншотов */}
+          {/* Сетка миниатюр в стиле Polaroid */}
           {(item.media_urls.length > 0 || pendingUploads.length > 0) && (
             <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
-              {/* Оптимистичные миниатюры в процессе отправки в Storage */}
               {pendingUploads.map((pending) => (
                 <div
                   key={pending.id}
-                  className="relative aspect-[3/4] overflow-hidden rounded-2xl border border-emerald-500/40 bg-zinc-900"
+                  className="relative aspect-[3/4] overflow-hidden rounded-2xl border border-[#F5BA42]/40 bg-[#1A1615]"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -862,21 +898,20 @@ export function ActiveReadingCard({
                     alt={pending.fileName}
                     className="h-full w-full object-cover opacity-60"
                   />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/35 text-white">
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    <span className="text-[10px] font-medium">Загрузка...</span>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/50 text-white">
+                    <Loader2 className="h-5 w-5 animate-spin text-[#F5BA42]" />
+                    <span className="text-[10px] font-bold text-[#F5BA42]">Отправка...</span>
                   </div>
                 </div>
               ))}
 
-              {/* Сохраненные в базе скриншоты (с сайта и из Telegram-бота) */}
               {item.media_urls.map((rawRef, idx) => {
                 const thumbUrl = resolvedThumbnails[rawRef];
 
                 return (
                   <div
                     key={`${rawRef}-${idx}`}
-                    className="group relative aspect-[3/4] overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-800"
+                    className="group relative aspect-[3/4] overflow-hidden rounded-2xl border border-white/5 bg-[#1A1615] shadow-lg shadow-black/40"
                   >
                     {thumbUrl ? (
                       <>
@@ -891,15 +926,15 @@ export function ActiveReadingCard({
                           type="button"
                           onClick={() => setLightboxUrl(thumbUrl)}
                           aria-label="Увеличить скриншот"
-                          className="absolute bottom-1.5 left-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-xs"
+                          className="absolute bottom-1.5 left-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm"
                         >
                           <Maximize2 className="h-3 w-3" />
                         </button>
                       </>
                     ) : (
-                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-2 text-center text-[10px] text-zinc-400">
-                        <Loader2 className="h-4 w-4 animate-spin text-emerald-500" />
-                        <span>Загрузка превью</span>
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-2 text-center text-[10px] text-[#A8A199]">
+                        <Loader2 className="h-4 w-4 animate-spin text-[#F5BA42]" />
+                        <span>Загрузка</span>
                       </div>
                     )}
 
@@ -907,7 +942,7 @@ export function ActiveReadingCard({
                       type="button"
                       onClick={() => handleRemoveScreenshot(rawRef)}
                       aria-label="Удалить скриншот"
-                      className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-white backdrop-blur-xs transition hover:bg-rose-600"
+                      className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur-sm transition hover:bg-rose-600"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -918,38 +953,37 @@ export function ActiveReadingCard({
           )}
         </section>
 
-        {/* БЛОК 4. Заметки, цитаты и размышления (тадаббур) с автосохранением */}
+        {/* БЛОК 4. Заметки и размышления */}
         <section className="space-y-2.5 p-4 sm:p-5">
           <div className="flex items-center justify-between gap-2">
             <label
               htmlFor={`notes-textarea-${item.id}`}
-              className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:text-zinc-400"
+              className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-[#A8A199] uppercase"
             >
-              <FileText className="h-3.5 w-3.5 text-emerald-500" />
+              <FileText className="h-3.5 w-3.5 text-[#F5BA42]" />
               {isQuran
                 ? 'Размышления над аятами (тадаббур)'
                 : 'Заметки и ключевые цитаты'}
             </label>
 
-            {/* Индикатор статуса автосохранения */}
             <span className="inline-flex items-center gap-1 text-[11px] font-medium">
               {notesSaveStatus === 'saving' && (
-                <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                <span className="inline-flex items-center gap-1 text-[#F5BA42]">
                   <Loader2 className="h-3 w-3 animate-spin" />
                   Сохранение...
                 </span>
               )}
               {notesSaveStatus === 'saved' && (
-                <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                <span className="inline-flex items-center gap-1 text-emerald-400">
                   <Check className="h-3 w-3" />
                   Сохранено{lastSavedTimeLabel ? ` в ${lastSavedTimeLabel}` : ''}
                 </span>
               )}
               {notesSaveStatus === 'error' && (
-                <span className="text-rose-500">Ошибка автосохранения</span>
+                <span className="text-rose-400">Ошибка</span>
               )}
               {notesSaveStatus === 'idle' && (
-                <span className="text-zinc-400">Автосохранение включено</span>
+                <span className="text-stone-500">Автосохранение</span>
               )}
             </span>
           </div>
@@ -967,7 +1001,7 @@ export function ActiveReadingCard({
                 ? 'Запишите смыслы аята, выводы для практики или заметку из тафсира...'
                 : 'Выпишите сильную мысль автора, цитату или идею для внедрения...'
             }
-            className="w-full resize-y rounded-2xl border border-zinc-200 bg-zinc-50 p-3.5 text-base leading-relaxed text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/80 dark:text-zinc-100"
+            className="w-full resize-y rounded-2xl border border-white/10 bg-[#1A1615] p-3.5 text-sm leading-relaxed text-[#FAF7F5] placeholder:text-stone-500 focus:border-[#F5BA42] focus:outline-none"
           />
         </section>
       </div>
@@ -978,13 +1012,13 @@ export function ActiveReadingCard({
           role="dialog"
           aria-modal="true"
           onClick={() => setLightboxUrl(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-md"
         >
           <button
             type="button"
             onClick={() => setLightboxUrl(null)}
             aria-label="Закрыть просмотр"
-            className="absolute top-6 right-5 flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-md"
+            className="absolute top-6 right-5 flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-md hover:bg-white/25"
           >
             <X className="h-5 w-5" />
           </button>
@@ -993,7 +1027,7 @@ export function ActiveReadingCard({
             src={lightboxUrl}
             alt="Полноэкранный скриншот страницы"
             onClick={(e) => e.stopPropagation()}
-            className="max-h-[85dvh] max-w-full rounded-2xl object-contain shadow-2xl"
+            className="max-h-[88dvh] max-w-full rounded-2xl object-contain shadow-2xl ring-1 ring-white/10"
           />
         </div>
       )}

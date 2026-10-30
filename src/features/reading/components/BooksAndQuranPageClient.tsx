@@ -10,8 +10,13 @@ import {
   WifiOff,
   Send,
   X,
+  Trash2,
+  ExternalLink,
+  ChevronRight,
+  Library,
 } from 'lucide-react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { hapticImpact, hapticNotification } from '@/lib/telegram/webapp';
 import { SURAH_AYAH_COUNTS } from '@/features/telegram-sync/utils/naturalLanguageParser';
 import { ActiveReadingCard } from '@/features/reading/components/ActiveReadingCard';
 import type {
@@ -26,7 +31,9 @@ interface BooksAndQuranPageClientProps {
 
 type CategoryFilter = 'all' | ReadingCategory;
 
-// Стартовые демонстрационные записи с детерминированными датами (без гидратационных расхождений SSR/Client)
+const LOCAL_STORAGE_READING_KEY = 'ejednevnik_books_library_cache';
+
+// Стартовые демонстрационные записи
 const DEMO_INITIAL_ITEMS: BooksAndQuranRow[] = [
   {
     id: 'demo-book-atomic',
@@ -92,12 +99,35 @@ function normalizeRow(raw: Partial<BooksAndQuranRow>): BooksAndQuranRow {
   };
 }
 
+function getLocalCachedBooks(): BooksAndQuranRow[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_READING_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map(normalizeRow);
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+function saveLocalCachedBooks(rows: BooksAndQuranRow[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(LOCAL_STORAGE_READING_KEY, JSON.stringify(rows));
+  } catch {
+    // ignore
+  }
+}
+
 /**
  * Клиентский контроллер раздела «Книги и Коран»:
- * - При открытии запрашивает свежие записи из таблицы public.books_and_quran;
- * - Подписывается на Supabase Realtime (postgres_changes) для мгновенного обновления без перезагрузки,
- *   когда пользователь отправляет страницу, аят, ссылку или скриншот в Telegram-бота;
- * - Дополнительно ревалидирует данные при возврате в приложение на iPhone (visibilitychange).
+ * - Гарантирует постоянное сохранение всей библиотеки книг и сур (в Supabase + локальный кэш);
+ * - Поддерживает Supabase Realtime (postgres_changes) для мгновенного обновления из бота;
+ * - Отображает постоянную секцию «Моя библиотека» со всеми предыдущими книгами.
  */
 export function BooksAndQuranPageClient({
   initialItems,
@@ -122,12 +152,27 @@ export function BooksAndQuranPageClient({
     useState<boolean>(false);
   const [liveToast, setLiveToast] = useState<string | null>(null);
 
-  // Состояние компактной формы добавления новой книги или суры
+  // Форма добавления новой книги или суры
   const [isAddOpen, setIsAddOpen] = useState<boolean>(false);
   const [newCategory, setNewCategory] = useState<ReadingCategory>('book');
   const [newTitle, setNewTitle] = useState<string>('');
   const [newTotalTarget, setNewTotalTarget] = useState<string>('300');
   const [isCreating, setIsCreating] = useState<boolean>(false);
+
+  // Первичная подгрузка из localStorage при клиенте (чтобы никогда не терять книги)
+  useEffect(() => {
+    const cached = getLocalCachedBooks();
+    if (cached.length > 0) {
+      setItems((prev) => {
+        const dbIds = new Set(prev.map((p) => p.id));
+        const missing = cached.filter((c) => !dbIds.has(c.id));
+        if (missing.length > 0) {
+          return sortByUpdatedDesc([...prev, ...missing]);
+        }
+        return prev;
+      });
+    }
+  }, []);
 
   // Показ всплывающего уведомления при приходе данных из Telegram-бота
   const showTelegramSyncToast = useCallback((message: string) => {
@@ -175,15 +220,24 @@ export function BooksAndQuranPageClient({
 
         if (!error && data) {
           const normalized = sortByUpdatedDesc(data.map(normalizeRow));
-          setItems(normalized);
+          // Объединяем с локальным кэшем
+          const dbIds = new Set(normalized.map((r) => r.id));
+          const localOffline = getLocalCachedBooks().filter(
+            (r) => !dbIds.has(r.id) && !r.id.startsWith('demo-')
+          );
+          const merged = sortByUpdatedDesc([...normalized, ...localOffline]);
+
+          setItems(merged);
+          saveLocalCachedBooks(merged);
+
           setSelectedId((prevSelected) => {
             if (
               prevSelected &&
-              normalized.some((row) => row.id === prevSelected)
+              merged.some((row) => row.id === prevSelected)
             ) {
               return prevSelected;
             }
-            return normalized[0]?.id ?? null;
+            return merged[0]?.id ?? null;
           });
         }
       } finally {
@@ -194,12 +248,12 @@ export function BooksAndQuranPageClient({
     [userId]
   );
 
-  // Первичная подгрузка при монтировании страницы
+  // Первичная подгрузка
   useEffect(() => {
     void fetchFreshItems(initialUserId, false);
   }, [fetchFreshItems, initialUserId]);
 
-  // Live-подписка Supabase Realtime (postgres_changes) на изменения таблицы books_and_quran
+  // Live-подписка Supabase Realtime (postgres_changes)
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
     if (!supabase || !userId) return;
@@ -221,7 +275,9 @@ export function BooksAndQuranPageClient({
             );
             setItems((prev) => {
               const withoutDup = prev.filter((r) => r.id !== inserted.id);
-              return sortByUpdatedDesc([inserted, ...withoutDup]);
+              const next = sortByUpdatedDesc([inserted, ...withoutDup]);
+              saveLocalCachedBooks(next);
+              return next;
             });
             setSelectedId(inserted.id);
 
@@ -234,11 +290,13 @@ export function BooksAndQuranPageClient({
             const updated = normalizeRow(
               payload.new as Partial<BooksAndQuranRow>
             );
-            setItems((prev) =>
-              sortByUpdatedDesc(
+            setItems((prev) => {
+              const next = sortByUpdatedDesc(
                 prev.map((row) => (row.id === updated.id ? updated : row))
-              )
-            );
+              );
+              saveLocalCachedBooks(next);
+              return next;
+            });
 
             if (updated.last_updated_by === 'telegram') {
               setSelectedId(updated.id);
@@ -254,6 +312,7 @@ export function BooksAndQuranPageClient({
             if (!deletedId) return;
             setItems((prev) => {
               const remaining = prev.filter((row) => row.id !== deletedId);
+              saveLocalCachedBooks(remaining);
               setSelectedId((curr) =>
                 curr === deletedId ? remaining[0]?.id ?? null : curr
               );
@@ -272,7 +331,7 @@ export function BooksAndQuranPageClient({
     };
   }, [userId, showTelegramSyncToast]);
 
-  // Автоматическая ревалидация при возврате на вкладку / в Standalone PWA на iPhone после Telegram
+  // Автоматическая ревалидация при возврате на вкладку
   useEffect(() => {
     const handleVisibilityOrFocus = () => {
       if (document.visibilityState === 'visible') {
@@ -289,13 +348,13 @@ export function BooksAndQuranPageClient({
     };
   }, [fetchFreshItems, userId]);
 
-  // Отфильтрованный список записей по выбранной вкладке
+  // Отфильтрованный список записей
   const filteredItems = useMemo(() => {
     if (activeFilter === 'all') return items;
     return items.filter((item) => item.category === activeFilter);
   }, [items, activeFilter]);
 
-  // Определение текущей активной книги / суры
+  // Текущая активная книга / сура
   const activeItem = useMemo(() => {
     if (filteredItems.length === 0) return null;
     return (
@@ -303,7 +362,7 @@ export function BooksAndQuranPageClient({
     );
   }, [filteredItems, selectedId]);
 
-  // Оптимистичное обновление полей карточки с записью в Supabase
+  // Патч полей карточки с записью в Supabase и локальный кэш
   const handlePatchItem = useCallback(
     async (
       itemId: string,
@@ -311,15 +370,17 @@ export function BooksAndQuranPageClient({
     ): Promise<boolean> => {
       const nowIso = new Date().toISOString();
 
-      setItems((prev) =>
-        sortByUpdatedDesc(
+      setItems((prev) => {
+        const next = sortByUpdatedDesc(
           prev.map((row) =>
             row.id === itemId
               ? normalizeRow({ ...row, ...patch, updated_at: nowIso })
               : row
           )
-        )
-      );
+        );
+        saveLocalCachedBooks(next);
+        return next;
+      });
 
       const supabase = getSupabaseBrowserClient();
       if (!supabase || !userId || itemId.startsWith('demo-')) {
@@ -336,7 +397,6 @@ export function BooksAndQuranPageClient({
         .eq('user_id', userId);
 
       if (error) {
-        // При ошибке откатываем к актуальному состоянию БД
         await fetchFreshItems(userId, true);
         return false;
       }
@@ -346,7 +406,26 @@ export function BooksAndQuranPageClient({
     [userId, fetchFreshItems]
   );
 
-  // Автоподстановка числа аятов при вводе номера суры (например: «Сура 18»)
+  // Удаление книги из библиотеки
+  const handleDeleteItem = async (itemId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    hapticImpact('medium');
+    if (!confirm('Удалить эту запись из библиотеки?')) return;
+
+    setItems((prev) => {
+      const remaining = prev.filter((r) => r.id !== itemId);
+      saveLocalCachedBooks(remaining);
+      setSelectedId((curr) => (curr === itemId ? remaining[0]?.id ?? null : curr));
+      return remaining;
+    });
+
+    const supabase = getSupabaseBrowserClient();
+    if (supabase && userId && !itemId.startsWith('demo-')) {
+      await supabase.from('books_and_quran').delete().eq('id', itemId).eq('user_id', userId);
+    }
+  };
+
+  // Автоподстановка числа аятов при вводе номера суры
   const handleNewTitleChange = (val: string) => {
     setNewTitle(val);
     if (newCategory === 'quran') {
@@ -363,6 +442,7 @@ export function BooksAndQuranPageClient({
   // Создание новой книги или суры
   const handleCreateItem = async (e: React.FormEvent) => {
     e.preventDefault();
+    hapticImpact('medium');
     const trimmedTitle = newTitle.trim();
     const parsedTotal = Math.max(1, parseInt(newTotalTarget, 10) || 300);
     if (!trimmedTitle) return;
@@ -398,15 +478,18 @@ export function BooksAndQuranPageClient({
 
         if (!error && data) {
           const created = normalizeRow(data);
-          setItems((prev) =>
-            sortByUpdatedDesc([
+          setItems((prev) => {
+            const next = sortByUpdatedDesc([
               created,
               ...prev.filter((r) => r.id !== created.id),
-            ])
-          );
+            ]);
+            saveLocalCachedBooks(next);
+            return next;
+          });
           setSelectedId(created.id);
+          hapticNotification('success');
 
-          // Отправляем уведомление в Telegram-бот о создании новой книги или суры
+          // Уведомление в Telegram-бот
           void fetch('/api/telegram/notify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -426,19 +509,21 @@ export function BooksAndQuranPageClient({
         }
       } else {
         const localItem = normalizeRow({
-          id: `demo-${crypto.randomUUID()}`,
-          user_id: 'demo-user',
+          id: `local-${crypto.randomUUID()}`,
+          user_id: 'local-user',
           category: newCategory,
           title: trimmedTitle,
           current_position: 0,
           total_target: parsedTotal,
           last_updated_by: 'web',
         });
-        setItems((prev) => [localItem, ...prev]);
+        setItems((prev) => {
+          const next = [localItem, ...prev];
+          saveLocalCachedBooks(next);
+          return next;
+        });
         setSelectedId(localItem.id);
-        showTelegramSyncToast(
-          '⚠️ Вы не вошли в аккаунт: нажмите «Войти» вверху страницы, чтобы книга сохранилась в облако!'
-        );
+        hapticNotification('success');
       }
 
       setNewTitle('');
@@ -454,25 +539,25 @@ export function BooksAndQuranPageClient({
       {liveToast && (
         <div
           role="status"
-          className="flex items-center justify-between gap-2 rounded-2xl border border-sky-500/30 bg-sky-500/10 px-3.5 py-2.5 text-xs font-medium text-sky-800 shadow-xs dark:text-sky-200"
+          className="flex items-center justify-between gap-2 rounded-2xl border border-[#F5BA42]/30 bg-[#F5BA42]/10 px-4 py-2.5 text-xs font-bold text-[#F5BA42] shadow-lg shadow-black/40"
         >
           <span className="flex items-center gap-2">
-            <Send className="h-3.5 w-3.5 shrink-0 text-sky-500" />
+            <Send className="h-3.5 w-3.5 shrink-0 text-[#F5BA42]" />
             {liveToast}
           </span>
           <button
             type="button"
             onClick={() => setLiveToast(null)}
-            className="rounded-lg p-0.5 text-sky-600 hover:bg-sky-500/15 dark:text-sky-300"
+            className="rounded-lg p-0.5 text-[#F5BA42] hover:bg-[#F5BA42]/20"
           >
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
       )}
 
-      {/* Панель статуса синхронизации и фильтров разделов */}
+      {/* Панель фильтров и действий в стиле FitFusion Dark Luxury */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="inline-flex rounded-2xl bg-zinc-100 p-1 dark:bg-zinc-900">
+        <div className="inline-flex rounded-2xl border border-white/5 bg-[#1E1A18] p-1 shadow-inner">
           {(
             [
               { id: 'all', label: 'Все' },
@@ -485,11 +570,14 @@ export function BooksAndQuranPageClient({
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setActiveFilter(tab.id)}
-                className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
+                onClick={() => {
+                  hapticImpact('light');
+                  setActiveFilter(tab.id);
+                }}
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition active:scale-95 ${
                   active
-                    ? 'bg-white text-zinc-900 shadow-xs dark:bg-zinc-800 dark:text-white'
-                    : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+                    ? 'bg-[#F5BA42] text-stone-950 shadow-md shadow-[#F5BA42]/15'
+                    : 'text-[#A8A199] hover:text-[#FAF7F5]'
                 }`}
               >
                 {tab.label}
@@ -500,10 +588,10 @@ export function BooksAndQuranPageClient({
 
         <div className="flex items-center gap-2">
           <span
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ${
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase ${
               isRealtimeConnected
-                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
+                ? 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30'
+                : 'bg-white/5 text-[#A8A199]'
             }`}
           >
             {isRealtimeConnected ? (
@@ -514,26 +602,32 @@ export function BooksAndQuranPageClient({
             ) : (
               <>
                 <WifiOff className="h-3 w-3" />
-                {userId ? 'Подключение...' : 'Демо-режим'}
+                {userId ? 'В сети' : 'Оффлайн'}
               </>
             )}
           </span>
 
           <button
             type="button"
-            onClick={() => void fetchFreshItems(userId, false)}
+            onClick={() => {
+              hapticImpact('light');
+              void fetchFreshItems(userId, false);
+            }}
             aria-label="Синхронизировать с базой"
-            className="flex h-8 w-8 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 transition hover:text-emerald-600 active:scale-95 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+            className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/5 bg-[#1E1A18] text-[#A8A199] transition hover:text-[#F5BA42] active:scale-95"
           >
             <RefreshCw
-              className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`}
+              className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin text-[#F5BA42]' : ''}`}
             />
           </button>
 
           <button
             type="button"
-            onClick={() => setIsAddOpen((v) => !v)}
-            className="inline-flex items-center gap-1 rounded-xl bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white transition active:scale-95 dark:bg-zinc-100 dark:text-zinc-900"
+            onClick={() => {
+              hapticImpact('medium');
+              setIsAddOpen((v) => !v);
+            }}
+            className="inline-flex items-center gap-1 rounded-xl bg-[#F5BA42] px-3 py-1.5 text-xs font-bold text-stone-950 shadow-md shadow-[#F5BA42]/15 transition hover:bg-[#e5aa32] active:scale-95"
           >
             <Plus className="h-3.5 w-3.5" />
             Добавить
@@ -545,23 +639,24 @@ export function BooksAndQuranPageClient({
       {isAddOpen && (
         <form
           onSubmit={handleCreateItem}
-          className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-xs dark:border-zinc-800 dark:bg-zinc-900"
+          className="space-y-3.5 rounded-3xl border border-white/5 bg-[#24201E] p-5 shadow-2xl shadow-black/50"
         >
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-              Новая книга или сура
+            <h3 className="text-xs font-black tracking-wider text-[#FAF7F5] uppercase">
+              Добавить книгу или суру Корана
             </h3>
-            <div className="inline-flex rounded-xl bg-zinc-100 p-0.5 dark:bg-zinc-800">
+            <div className="inline-flex rounded-xl bg-[#141211] p-0.5 ring-1 ring-white/5">
               <button
                 type="button"
                 onClick={() => {
+                  hapticImpact('light');
                   setNewCategory('book');
                   setNewTotalTarget('300');
                 }}
-                className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${
+                className={`rounded-lg px-2.5 py-1 text-xs font-bold ${
                   newCategory === 'book'
-                    ? 'bg-white text-zinc-900 shadow-2xs dark:bg-zinc-700 dark:text-white'
-                    : 'text-zinc-500'
+                    ? 'bg-[#F5BA42] text-stone-950'
+                    : 'text-[#A8A199]'
                 }`}
               >
                 📖 Книга
@@ -569,16 +664,17 @@ export function BooksAndQuranPageClient({
               <button
                 type="button"
                 onClick={() => {
+                  hapticImpact('light');
                   setNewCategory('quran');
                   setNewTotalTarget('286');
                 }}
-                className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${
+                className={`rounded-lg px-2.5 py-1 text-xs font-bold ${
                   newCategory === 'quran'
-                    ? 'bg-white text-zinc-900 shadow-2xs dark:bg-zinc-700 dark:text-white'
-                    : 'text-zinc-500'
+                    ? 'bg-[#5B1626] text-[#F5BA42]'
+                    : 'text-[#A8A199]'
                 }`}
               >
-                🕋 Сура Корана
+                🕋 Коран
               </button>
             </div>
           </div>
@@ -591,10 +687,10 @@ export function BooksAndQuranPageClient({
               onChange={(e) => handleNewTitleChange(e.target.value)}
               placeholder={
                 newCategory === 'quran'
-                  ? 'Например: Сура 18 Аль-Кахф'
-                  : 'Например: Чистый код'
+                  ? 'Например: Сура 18 «Аль-Кахф»'
+                  : 'Например: Атомные привычки'
               }
-              className=" rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-500 focus:bg-white focus:outline-none sm:col-span-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="rounded-2xl border border-white/10 bg-[#1A1615] px-3.5 py-2.5 text-sm text-[#FAF7F5] placeholder:text-stone-500 focus:border-[#F5BA42] focus:outline-none sm:col-span-2"
             />
             <input
               type="number"
@@ -606,30 +702,30 @@ export function BooksAndQuranPageClient({
               placeholder={
                 newCategory === 'quran' ? 'Всего аятов' : 'Всего страниц'
               }
-              className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="rounded-2xl border border-white/10 bg-[#1A1615] px-3.5 py-2.5 font-mono text-sm font-bold text-[#FAF7F5] placeholder:text-stone-500 tabular-nums focus:border-[#F5BA42] focus:outline-none"
             />
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 pt-1">
             <button
               type="button"
               onClick={() => setIsAddOpen(false)}
-              className="rounded-xl px-3 py-2 text-xs font-medium text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              className="rounded-xl px-3 py-2 text-xs font-bold text-[#A8A199] hover:text-[#FAF7F5]"
             >
               Отмена
             </button>
             <button
               type="submit"
               disabled={isCreating || !newTitle.trim()}
-              className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+              className="rounded-xl bg-[#F5BA42] px-4 py-2 text-xs font-bold text-stone-950 shadow-md shadow-[#F5BA42]/15 hover:bg-[#e5aa32] disabled:opacity-50 active:scale-95"
             >
-              {isCreating ? 'Сохранение...' : 'Создать карточку'}
+              {isCreating ? 'Сохранение...' : 'Создать и сохранить'}
             </button>
           </div>
         </form>
       )}
 
-      {/* Горизонтальный переключатель всех книг и сур (отсортирован по свежести updated_at) */}
+      {/* Быстрый горизонтальный свитчер книг */}
       {filteredItems.length > 1 && (
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
           {filteredItems.map((entry) => {
@@ -644,21 +740,24 @@ export function BooksAndQuranPageClient({
               <button
                 key={entry.id}
                 type="button"
-                onClick={() => setSelectedId(entry.id)}
+                onClick={() => {
+                  hapticImpact('light');
+                  setSelectedId(entry.id);
+                }}
                 className={`flex shrink-0 items-center gap-2 rounded-2xl border px-3 py-2 text-left transition active:scale-98 ${
                   isSelected
-                    ? 'border-emerald-500 bg-emerald-500/10 text-zinc-900 dark:text-white'
-                    : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300'
+                    ? 'border-[#F5BA42] bg-[#F5BA42]/10 text-[#FAF7F5]'
+                    : 'border-white/5 bg-[#1E1A18] text-[#A8A199] hover:border-[#F5BA42]/30'
                 }`}
               >
                 {entry.category === 'quran' ? (
-                  <Sparkles className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                  <Sparkles className="h-3.5 w-3.5 shrink-0 text-[#F5BA42]" />
                 ) : (
-                  <BookOpen className="h-3.5 w-3.5 shrink-0 text-sky-500" />
+                  <BookOpen className="h-3.5 w-3.5 shrink-0 text-[#F5BA42]" />
                 )}
                 <div className="max-w-[150px]">
-                  <p className="truncate text-xs font-semibold">{entry.title}</p>
-                  <p className="text-[10px] text-zinc-400">
+                  <p className="truncate text-xs font-bold text-[#FAF7F5]">{entry.title}</p>
+                  <p className="font-mono text-[10px] text-[#A8A199] tabular-nums">
                     {entry.current_position}/{entry.total_target} ({pct}%)
                   </p>
                 </div>
@@ -670,11 +769,11 @@ export function BooksAndQuranPageClient({
 
       {/* Основная карточка активной книги / суры */}
       {isLoading ? (
-        <div className="animate-pulse space-y-4 rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="h-6 w-40 rounded-lg bg-zinc-200 dark:bg-zinc-800" />
-          <div className="h-8 w-3/4 rounded-lg bg-zinc-200 dark:bg-zinc-800" />
-          <div className="h-3 w-full rounded-full bg-zinc-200 dark:bg-zinc-800" />
-          <div className="h-28 w-full rounded-2xl bg-zinc-100 dark:bg-zinc-800/60" />
+        <div className="animate-pulse space-y-4 rounded-3xl border border-white/5 bg-[#24201E] p-5 shadow-2xl">
+          <div className="h-6 w-32 rounded-lg bg-[#1A1615]" />
+          <div className="h-8 w-3/4 rounded-lg bg-[#1A1615]" />
+          <div className="h-2 w-full rounded-full bg-[#1A1615]" />
+          <div className="h-32 w-full rounded-2xl bg-[#1A1615]" />
         </div>
       ) : activeItem ? (
         <ActiveReadingCard
@@ -684,18 +783,141 @@ export function BooksAndQuranPageClient({
           onPatchItem={handlePatchItem}
         />
       ) : (
-        <div className="rounded-3xl border border-dashed border-zinc-300 bg-white/60 p-8 text-center dark:border-zinc-800 dark:bg-zinc-900/50">
-          <BookOpen className="mx-auto h-8 w-8 text-zinc-400" />
-          <p className="mt-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
-            В этом разделе пока нет активных записей
+        <div className="rounded-3xl border border-dashed border-white/10 bg-[#1E1A18]/60 p-8 text-center shadow-xl">
+          <BookOpen className="mx-auto h-8 w-8 text-[#A8A199]" />
+          <p className="mt-2 text-sm font-bold text-[#FAF7F5]">
+            В этом разделе пока нет книг
           </p>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-xs text-[#A8A199]">
             Нажмите «Добавить» выше или напишите в Telegram-бота:
             <br />
             «Прочитал 45 страниц книги Атомные привычки»
           </p>
         </div>
       )}
+
+      {/* ПОСТОЯННЫЙ БЛОК: «МОЯ БИБЛИОТЕКА» — ВСЕ СОХРАНЕННЫЕ КНИГИ И СУРЫ */}
+      <section className="pt-4 space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center justify-center rounded-lg bg-[#F5BA42]/10 p-1 text-[#F5BA42]">
+              <Library className="h-4 w-4" />
+            </span>
+            <h3 className="text-sm font-black tracking-tight text-[#FAF7F5] uppercase">
+              Моя библиотека
+            </h3>
+            <span className="rounded-full bg-white/5 px-2 py-0.5 font-mono text-[10px] font-bold text-[#A8A199] tabular-nums">
+              {filteredItems.length}
+            </span>
+          </div>
+          <span className="text-[11px] text-[#A8A199]">
+            Сохраняются навсегда
+          </span>
+        </div>
+
+        {filteredItems.length === 0 ? (
+          <p className="px-1 text-xs text-[#A8A199]">Нет сохраненных книг</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            {filteredItems.map((b) => {
+              const isSelected = activeItem?.id === b.id;
+              const isQuran = b.category === 'quran';
+              const safeTarget = Math.max(1, b.total_target);
+              const pct = Math.min(100, Math.round((b.current_position / safeTarget) * 100));
+
+              return (
+                <div
+                  key={b.id}
+                  onClick={() => {
+                    hapticImpact('light');
+                    setSelectedId(b.id);
+                  }}
+                  className={`group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-3xl border p-4 transition active:scale-[0.99] ${
+                    isSelected
+                      ? 'border-[#F5BA42] bg-gradient-to-br from-[#292321] to-[#1E1A18] shadow-xl shadow-black/60'
+                      : 'border-white/5 bg-[#24201E] hover:border-white/10'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                          isQuran
+                            ? 'bg-[#5B1626] text-[#F5BA42]'
+                            : 'bg-[#F5BA42] text-stone-950'
+                        }`}
+                      >
+                        {isQuran ? (
+                          <Sparkles className="h-2.5 w-2.5" />
+                        ) : (
+                          <BookOpen className="h-2.5 w-2.5" />
+                        )}
+                        {isQuran ? 'Коран' : 'Книга'}
+                      </span>
+
+                      <div className="flex items-center gap-1">
+                        {isSelected && (
+                          <span className="inline-flex items-center rounded-full bg-[#F5BA42]/15 px-2 py-0.5 text-[9px] font-bold text-[#F5BA42]">
+                            Активна
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteItem(b.id, e)}
+                          title="Удалить"
+                          className="rounded-lg p-1 text-stone-500 opacity-60 transition hover:bg-rose-500/15 hover:text-rose-400 group-hover:opacity-100"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <h4 className="mt-2.5 truncate text-sm font-black text-[#FAF7F5] uppercase">
+                      {b.title}
+                    </h4>
+
+                    {b.notes && (
+                      <p className="mt-1 line-clamp-2 text-xs text-[#A8A199]/80 italic">
+                        «{b.notes}»
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="mt-3.5">
+                    <div className="flex items-center justify-between text-xs text-[#A8A199]">
+                      <span className="font-mono tabular-nums">
+                        {b.current_position} / {b.total_target} {isQuran ? 'аятов' : 'стр.'}
+                      </span>
+                      <span className="font-mono font-bold text-[#F5BA42] tabular-nums">
+                        {pct}%
+                      </span>
+                    </div>
+
+                    <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-[#141211]">
+                      <div
+                        style={{ width: `${pct}%` }}
+                        className="h-full rounded-full bg-[#F5BA42] transition-all"
+                      />
+                    </div>
+
+                    <div className="mt-2.5 flex items-center justify-between pt-1">
+                      <span className="text-[10px] text-[#A8A199]">
+                        {b.media_urls.length > 0 && `📸 ${b.media_urls.length} скринш. · `}
+                        {b.resource_urls.length > 0 && `🔗 ${b.resource_urls.length} ссылок`}
+                      </span>
+
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#F5BA42] group-hover:translate-x-0.5 transition-transform">
+                        {isSelected ? 'Открыта выше' : 'Читать'}
+                        <ChevronRight className="h-3 w-3" />
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

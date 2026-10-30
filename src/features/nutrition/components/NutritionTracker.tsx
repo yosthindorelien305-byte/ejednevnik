@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Sparkles,
   Plus,
@@ -87,6 +87,23 @@ export function NutritionTracker({
   // Уже записанные за сегодня приемы пищи
   const [loggedMeals, setLoggedMeals] =
     useState<LoggedMealSummary[]>(initialLoggedMeals);
+
+  // Загрузка сохраненных за сегодня приемов пищи из localStorage
+  useEffect(() => {
+    try {
+      const today = new Intl.DateTimeFormat('en-CA').format(new Date());
+      const raw = localStorage.getItem(`ejednevnik_nutrition_${today}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setLoggedMeals(parsed);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const [selectedCatalogId, setSelectedCatalogId] = useState<string>(
     DEFAULT_FOOD_CATALOG[0].id
   );
@@ -258,16 +275,24 @@ export function NutritionTracker({
       }
     }
 
-    setLoggedMeals((prev) => [
-      ...prev,
-      {
-        id: `${Date.now()}`,
-        mealType,
-        title: summaryText,
-        recipeUrl: recipeUrl.trim() || undefined,
-        macros: currentMealTotals,
-      },
-    ]);
+    const newMealItem: LoggedMealSummary = {
+      id: `${Date.now()}`,
+      mealType,
+      title: summaryText,
+      recipeUrl: recipeUrl.trim() || undefined,
+      macros: currentMealTotals,
+    };
+
+    setLoggedMeals((prev) => {
+      const next = [...prev, newMealItem];
+      try {
+        const today = new Intl.DateTimeFormat('en-CA').format(new Date());
+        localStorage.setItem(`ejednevnik_nutrition_${today}`, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
 
     setItems([]);
     setQuickInput('');

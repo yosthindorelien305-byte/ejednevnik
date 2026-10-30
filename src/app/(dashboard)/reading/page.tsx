@@ -1,3 +1,4 @@
+import { BookOpen } from 'lucide-react';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { BooksAndQuranPageClient } from '@/features/reading/components/BooksAndQuranPageClient';
 import type { BooksAndQuranRow } from '@/features/reading/types';
@@ -32,11 +33,15 @@ export default async function ReadingPage() {
 
   return (
     <div className="space-y-4">
-      <header>
-        <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+      <header className="px-1">
+        <span className="inline-flex items-center gap-1 rounded-full bg-[#F5BA42] px-2.5 py-0.5 text-[10px] font-black tracking-wider text-stone-950 uppercase">
+          <BookOpen className="h-3 w-3" />
+          READING & QURAN TRACKER
+        </span>
+        <h1 className="mt-1 text-2xl font-black tracking-tight text-[#FAF7F5] uppercase">
           Книги и Коран
         </h1>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-1 text-xs text-[#A8A199]">
           Живая синхронизация страниц, аятов, полезных ссылок и скриншотов с Telegram-ботом
         </p>
       </header>
