@@ -371,11 +371,22 @@ export function BooksAndQuranPageClient({
     const supabase = getSupabaseBrowserClient();
 
     try {
-      if (supabase && userId) {
+      let currentUid = userId;
+      if (!currentUid && supabase) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          currentUid = user.id;
+          setUserId(user.id);
+        }
+      }
+
+      if (supabase && currentUid) {
         const { data, error } = await supabase
           .from('books_and_quran')
           .insert({
-            user_id: userId,
+            user_id: currentUid,
             category: newCategory,
             title: trimmedTitle,
             current_position: 0,
@@ -401,7 +412,7 @@ export function BooksAndQuranPageClient({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               type: 'reading',
-              userId,
+              userId: currentUid,
               data: {
                 category: created.category,
                 title: created.title,
@@ -425,6 +436,9 @@ export function BooksAndQuranPageClient({
         });
         setItems((prev) => [localItem, ...prev]);
         setSelectedId(localItem.id);
+        showTelegramSyncToast(
+          '⚠️ Вы не вошли в аккаунт: нажмите «Войти» вверху страницы, чтобы книга сохранилась в облако!'
+        );
       }
 
       setNewTitle('');

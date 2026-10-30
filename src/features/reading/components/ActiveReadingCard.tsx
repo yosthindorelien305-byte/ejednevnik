@@ -252,14 +252,22 @@ export function ActiveReadingCard({
   // Отправка отчета о прогрессе чтения книги/Корана в Telegram-бот
   const sendTelegramReport = useCallback(
     async (pos: number, notesOverride?: string | null) => {
-      if (!userId || item.id.startsWith('demo-')) return;
+      let currentUid = userId;
+      if (!currentUid) {
+        const supabase = getSupabaseBrowserClient();
+        if (supabase) {
+          const { data: { user } } = await supabase.auth.getUser();
+          currentUid = user?.id ?? null;
+        }
+      }
+      if (!currentUid || item.id.startsWith('demo-')) return;
       try {
         await fetch('/api/telegram/notify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             type: 'reading',
-            userId,
+            userId: currentUid,
             data: {
               category: item.category,
               title: item.title,

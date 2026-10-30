@@ -1,5 +1,6 @@
 import React from 'react';
 import { BottomNav } from '@/components/layout/BottomNav';
+import { AuthHeader } from '@/components/auth/AuthHeader';
 
 /**
  * Оболочка основных экранов ежедневника для iPhone (Standalone PWA):
@@ -19,7 +20,10 @@ export default function DashboardLayout({
         className="sticky top-0 z-30 w-full bg-zinc-50/85 pt-safe backdrop-blur-xl dark:bg-zinc-950/85"
       />
 
-      <main className="mx-auto w-full max-w-lg px-4 pt-3">{children}</main>
+      <main className="mx-auto w-full max-w-lg px-4 pt-3">
+        <AuthHeader />
+        {children}
+      </main>
 
       <BottomNav />
     </div>
