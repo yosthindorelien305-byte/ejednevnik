@@ -13,14 +13,14 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative min-h-dvh bg-zinc-50 pl-safe pr-safe pb-tabbar-safe dark:bg-zinc-950">
+    <div className="relative min-h-dvh bg-[#141211] text-[#FAF7F5] pl-safe pr-safe pb-tabbar-safe">
       {/* Полупрозрачная шапка-подложка под статус-бар iPhone (black-translucent) */}
       <div
         aria-hidden="true"
-        className="sticky top-0 z-30 w-full bg-zinc-50/85 pt-safe backdrop-blur-xl dark:bg-zinc-950/85"
+        className="sticky top-0 z-30 w-full bg-[#141211]/85 pt-safe backdrop-blur-xl"
       />
 
-      <main className="mx-auto w-full max-w-lg px-4 pt-3">
+      <main className="mx-auto w-full max-w-lg px-4 pt-2">
         <AuthHeader />
         {children}
       </main>

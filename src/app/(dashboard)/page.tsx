@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import {
   Dumbbell,
@@ -5,75 +7,109 @@ import {
   Utensils,
   Terminal,
   ChevronRight,
+  Flame,
+  Sparkles,
 } from 'lucide-react';
+import { hapticImpact } from '@/lib/telegram/webapp';
 
-// Главный экран «Главная / Сводка» в стиле iOS Large Title
 export default function DashboardHomePage() {
   const sections = [
     {
       href: '/workouts',
       title: 'Тренировки',
-      subtitle: 'Силовые подходы, тоннаж и фото формы с камеры iPhone',
+      subtitle: 'Силовые сплиты, тоннаж и фото формы с камеры',
+      badge: 'СИЛА & ТОННАЖ',
       icon: Dumbbell,
-      accent: 'text-emerald-600 bg-emerald-500/15 dark:text-emerald-400',
+      accentBg: 'bg-[#F5BA42]/10 text-[#F5BA42] ring-1 ring-[#F5BA42]/20',
+      badgeBg: 'bg-[#F5BA42] text-stone-950',
     },
     {
       href: '/reading',
       title: 'Книги и Коран',
-      subtitle: 'Страницы, аяты, ссылки на материалы и скриншоты',
+      subtitle: 'Страницы, аяты, тадаббур и ссылки на тафсир',
+      badge: 'ДУХОВНОСТЬ',
       icon: BookOpen,
-      accent: 'text-sky-600 bg-sky-500/15 dark:text-sky-400',
+      accentBg: 'bg-[#5B1626]/40 text-rose-300 ring-1 ring-rose-500/20',
+      badgeBg: 'bg-[#5B1626] text-rose-100',
     },
     {
       href: '/nutrition',
-      title: 'Питание',
-      subtitle: 'Рацион, ссылки на рецепты и расчет КБЖУ за день',
+      title: 'Рацион и КБЖУ',
+      subtitle: 'Калории, белки, жиры и углеводы за день',
+      badge: 'ПИТАНИЕ',
       icon: Utensils,
-      accent: 'text-amber-600 bg-amber-500/15 dark:text-amber-400',
+      accentBg: 'bg-[#F5BA42]/10 text-[#F5BA42] ring-1 ring-[#F5BA42]/20',
+      badgeBg: 'bg-[#F5BA42] text-stone-950',
     },
     {
       href: '/vibecoding',
       title: 'Вайбкодинг',
-      subtitle: 'Заметки по коду, полезные ссылки и трекер проектов',
+      subtitle: 'Пет-проекты, идеи кода и база полезных ссылок',
+      badge: 'DEVELOPMENT',
       icon: Terminal,
-      accent: 'text-violet-600 bg-violet-500/15 dark:text-violet-400',
+      accentBg: 'bg-white/5 text-[#FAF7F5] ring-1 ring-white/10',
+      badgeBg: 'bg-[#24201E] text-[#FAF7F5] border border-white/10',
     },
   ];
 
   return (
     <div className="space-y-5">
-      <header className="px-0.5">
-        <p className="text-xs font-semibold tracking-wide text-emerald-600 uppercase dark:text-emerald-400">
-          Сводка дня
-        </p>
-        <h1 className="mt-0.5 text-3xl font-bold tracking-tight">Главная</h1>
+      {/* Шапка главного экрана в стиле FitFusion Luxury */}
+      <header className="flex items-center justify-between px-1">
+        <div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#F5BA42] px-2.5 py-0.5 text-[10px] font-black tracking-wider text-stone-950 uppercase">
+              <Sparkles className="h-3 w-3" />
+              FitFusion Luxury
+            </span>
+          </div>
+          <h1 className="mt-1.5 text-2xl font-black tracking-tight text-[#FAF7F5] uppercase">
+            Главная / Сводка
+          </h1>
+        </div>
+
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/5 bg-gradient-to-br from-[#26211F] to-[#1D1918] shadow-lg shadow-black/40">
+          <Flame className="h-5 w-5 text-[#F5BA42]" />
+        </div>
       </header>
 
-      <div className="divide-y divide-zinc-100 overflow-hidden rounded-3xl border border-zinc-200/90 bg-white shadow-xs dark:divide-zinc-800/80 dark:border-zinc-800 dark:bg-zinc-900">
+      {/* Список основных модулей в премиальных графитовых карточках */}
+      <div className="space-y-3">
         {sections.map((item) => {
           const Icon = item.icon;
           return (
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center justify-between gap-3 p-4 transition active:bg-zinc-100 dark:active:bg-zinc-800/70"
+              onClick={() => hapticImpact('light')}
+              className="group relative flex items-center justify-between gap-3 overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-r from-[#26211F] to-[#1D1918] p-4.5 shadow-xl shadow-black/40 transition-all duration-200 active:scale-[0.98] hover:border-white/10"
             >
               <div className="flex items-center gap-3.5">
                 <span
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${item.accent}`}
+                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-inner transition-transform duration-200 group-hover:scale-105 ${item.accentBg}`}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-5 w-5" strokeWidth={2.2} />
                 </span>
                 <div>
-                  <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    {item.title}
-                  </h2>
-                  <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-black tracking-tight text-[#FAF7F5] uppercase">
+                      {item.title}
+                    </h2>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${item.badgeBg}`}
+                    >
+                      {item.badge}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-[#A8A199] leading-snug">
                     {item.subtitle}
                   </p>
                 </div>
               </div>
-              <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400" />
+
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/5 text-[#A8A199] transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-[#FAF7F5]">
+                <ChevronRight className="h-4 w-4" />
+              </div>
             </Link>
           );
         })}

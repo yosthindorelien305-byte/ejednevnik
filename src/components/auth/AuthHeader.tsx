@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { LogIn, LogOut, User, CheckCircle2, AlertTriangle, X, Loader2 } from 'lucide-react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { hapticImpact, hapticNotification } from '@/lib/telegram/webapp';
 
 export function AuthHeader() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -30,7 +31,6 @@ export function AuthHeader() {
 
       if (user) {
         setUserEmail(user.email ?? 'Авторизован');
-        // Запрашиваем статус привязки Telegram
         const { data: profile } = await supabase
           .from('profiles')
           .select('telegram_id')
@@ -72,6 +72,7 @@ export function AuthHeader() {
     e.preventDefault();
     setAuthError(null);
     setIsSubmitting(true);
+    hapticImpact('medium');
 
     const supabase = getSupabaseBrowserClient();
     if (!supabase) {
@@ -88,23 +89,26 @@ export function AuthHeader() {
 
       if (error) {
         setAuthError(error.message);
+        hapticNotification('error');
         return;
       }
 
       if (data.user) {
+        hapticNotification('success');
         setIsModalOpen(false);
         setPassword('');
-        // Перезагружаем страницу, чтобы серверные компоненты (чтение, тренировки) получили куки сессии
         window.location.reload();
       }
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'Ошибка входа');
+      hapticNotification('error');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleLogout = async () => {
+    hapticImpact('light');
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;
     await supabase.auth.signOut();
@@ -118,45 +122,48 @@ export function AuthHeader() {
   }
 
   return (
-    <div className="mb-3">
+    <div className="mb-4">
       {userEmail ? (
-        // Пользователь вошел в аккаунт
-        <div className="flex items-center justify-between gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-3.5 py-2 text-xs text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-950/40 dark:text-emerald-300">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-              <User className="h-3.5 w-3.5" />
+        // Авторизованный профиль: Темный графит с золотыми акцентами
+        <div className="flex items-center justify-between gap-2.5 rounded-3xl border border-white/5 bg-gradient-to-r from-[#26211F] to-[#1D1918] p-3 shadow-xl shadow-black/40">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-[#F5BA42]/10 text-[#F5BA42] ring-1 ring-[#F5BA42]/20">
+              <User className="h-4 w-4" />
             </span>
             <div className="min-w-0">
-              <p className="truncate font-medium">{userEmail}</p>
-              <p className="flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-400">
-                <CheckCircle2 className="h-3 w-3 shrink-0" />
-                {telegramId ? 'Telegram синхронизирован' : 'Синхронизация активна'}
+              <p className="truncate text-xs font-bold text-[#FAF7F5]">{userEmail}</p>
+              <p className="flex items-center gap-1 text-[10px] font-medium text-[#A8A199]">
+                <CheckCircle2 className="h-3 w-3 shrink-0 text-[#F5BA42]" />
+                {telegramId ? 'Telegram синхронизирован' : 'Облако активно'}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={handleLogout}
-            className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-white/70 px-2.5 py-1 text-[11px] font-semibold text-zinc-700 transition hover:bg-white active:scale-95 dark:bg-zinc-800 dark:text-zinc-300"
+            className="inline-flex shrink-0 items-center gap-1 rounded-2xl border border-white/5 bg-[#24201E] px-3 py-1.5 text-[11px] font-semibold text-[#A8A199] transition hover:text-[#FAF7F5] active:scale-95"
           >
             <LogOut className="h-3 w-3" />
             Выйти
           </button>
         </div>
       ) : (
-        // Пользователь НЕ авторизован (демо-режим)
-        <div className="flex items-center justify-between gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/15 p-3 text-xs text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-200">
+        // Неавторизованный профиль: Благородный винный акцент с золотой кнопкой
+        <div className="flex items-center justify-between gap-3 rounded-3xl border border-[#5B1626]/40 bg-gradient-to-r from-[#4A1521]/60 to-[#26211F] p-3.5 shadow-xl shadow-black/40">
           <div className="flex items-center gap-2.5">
-            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <AlertTriangle className="h-4 w-4 shrink-0 text-[#F5BA42]" />
             <div>
-              <p className="font-bold">Вы не вошли в аккаунт</p>
-              <p className="text-[11px] opacity-90">Записи не сохраняются в облако и не идут в бот</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-[#FAF7F5]">Демо-режим</p>
+              <p className="text-[11px] text-[#A8A199]">Войдите для сохранения в облако и Telegram</p>
             </div>
           </div>
           <button
             type="button"
-            onClick={() => setIsModalOpen(true)}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-amber-600 px-3 py-1.5 font-bold text-white shadow-xs transition hover:bg-amber-500 active:scale-95"
+            onClick={() => {
+              hapticImpact('medium');
+              setIsModalOpen(true);
+            }}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-2xl bg-[#F5BA42] px-3.5 py-2 text-xs font-bold text-stone-950 shadow-lg shadow-[#F5BA42]/20 transition active:scale-95 hover:bg-[#e5ad3a]"
           >
             <LogIn className="h-3.5 w-3.5" />
             Войти
@@ -164,30 +171,38 @@ export function AuthHeader() {
         </div>
       )}
 
-      {/* Модальное окно входа в аккаунт в стиле iOS */}
+      {/* Модальное окно входа в стиле графит + золото */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-sm rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
+          <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-gradient-to-b from-[#26211F] to-[#1D1918] p-5 shadow-2xl shadow-black/80">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                Вход в Ежедневник
-              </h2>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#F5BA42]">
+                  FitFusion Luxury
+                </span>
+                <h2 className="text-lg font-black tracking-tight text-[#FAF7F5] uppercase">
+                  Вход в аккаунт
+                </h2>
+              </div>
               <button
                 type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 transition hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400"
+                onClick={() => {
+                  hapticImpact('light');
+                  setIsModalOpen(false);
+                }}
+                className="flex h-8 w-8 items-center justify-center rounded-2xl bg-white/5 text-[#A8A199] transition hover:bg-white/10 hover:text-white"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              Войдите в аккаунт, чтобы сохранять тренировки, книги и питание в базу данных и получать отчеты в Telegram.
+            <p className="mt-2 text-xs text-[#A8A199]">
+              Войдите в аккаунт, чтобы сохранять подходы, книги и питание в облаке и мгновенно получать отчеты в Telegram.
             </p>
 
-            <form onSubmit={handleLogin} className="mt-4 space-y-3">
+            <form onSubmit={handleLogin} className="mt-4 space-y-3.5">
               <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                <label className="mb-1 block text-xs font-semibold tracking-wider text-[#A8A199] uppercase">
                   Email
                 </label>
                 <input
@@ -195,13 +210,13 @@ export function AuthHeader() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="ваш-email@gmail.com"
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  placeholder="name@gmail.com"
+                  className="w-full rounded-2xl border border-white/10 bg-[#141211] px-3.5 py-2.5 text-sm text-[#FAF7F5] placeholder:text-[#A8A199]/40 focus:border-[#F5BA42] focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                <label className="mb-1 block text-xs font-semibold tracking-wider text-[#A8A199] uppercase">
                   Пароль
                 </label>
                 <input
@@ -210,12 +225,12 @@ export function AuthHeader() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Ваш пароль"
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  className="w-full rounded-2xl border border-white/10 bg-[#141211] px-3.5 py-2.5 text-sm text-[#FAF7F5] placeholder:text-[#A8A199]/40 focus:border-[#F5BA42] focus:outline-none"
                 />
               </div>
 
               {authError && (
-                <div className="rounded-xl bg-rose-500/15 p-2.5 text-xs text-rose-700 dark:text-rose-300">
+                <div className="rounded-2xl border border-[#5B1626] bg-[#4A1521]/60 p-3 text-xs font-medium text-rose-300">
                   {authError}
                 </div>
               )}
@@ -223,15 +238,15 @@ export function AuthHeader() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-60 active:scale-98"
+                className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#F5BA42] py-3 text-sm font-bold text-stone-950 shadow-lg shadow-[#F5BA42]/20 transition hover:bg-[#e5ad3a] active:scale-95 disabled:opacity-60"
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Вход...
+                    Проверка...
                   </>
                 ) : (
-                  'Войти в аккаунт'
+                  'Войти в Ежедневник'
                 )}
               </button>
             </form>

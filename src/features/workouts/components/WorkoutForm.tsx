@@ -12,8 +12,11 @@ import {
   X,
   HeartPulse,
   AlertCircle,
+  TrendingUp,
+  Sparkles,
 } from 'lucide-react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { hapticImpact, hapticNotification } from '@/lib/telegram/webapp';
 
 // Типы тренировки в соответствии с ENUM workout_type в Supabase
 export type WorkoutType =
@@ -75,7 +78,7 @@ const WORKOUT_TYPE_LABELS: Record<WorkoutType, string> = {
   other: 'Другое',
 };
 
-// Генератор локальных идентификаторов для динамических списков формы
+// Генератор локальных идентификаторов
 const createId = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
@@ -84,167 +87,181 @@ const createId = () =>
 export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
   const [workoutDate, setWorkoutDate] = useState<string>('');
   const [workoutType, setWorkoutType] = useState<WorkoutType>('strength');
-  const [title, setTitle] = useState<string>('');
+  const [title, setTitle] = useState<string>('Тяжелый верх');
   const [wellbeingRating, setWellbeingRating] = useState<number>(8);
   const [wellbeingNotes, setWellbeingNotes] = useState<string>('');
   const [bodyWeight, setBodyWeight] = useState<string>('');
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Динамический список упражнений и подходов с детерминированными стартовыми ID (без расхождений SSR)
+  // Динамический список упражнений и подходов
   const [exercises, setExercises] = useState<ExerciseFormItem[]>([
     {
       id: 'ex-init-1',
       name: 'Жим штанги лежа',
       sets: [
-        { id: 'set-init-1', weight: 60, reps: 10 },
-        { id: 'set-init-2', weight: 70, reps: 8 },
+        { id: 'set-init-1', weight: 80, reps: 8 },
+        { id: 'set-init-2', weight: 80, reps: 8 },
+        { id: 'set-init-3', weight: 80, reps: 7 },
+      ],
+    },
+    {
+      id: 'ex-init-2',
+      name: 'Французский жим',
+      sets: [
+        { id: 'set-init-4', weight: 32, reps: 10 },
+        { id: 'set-init-5', weight: 32, reps: 10 },
       ],
     },
   ]);
 
-  // Устанавливаем текущую локальную дату на клиенте после гидратации
-  useEffect(() => {
-    setWorkoutDate(new Intl.DateTimeFormat('en-CA').format(new Date()));
-  }, []);
-
-  // Загруженные фото прогресса с локальными Object URL для предпросмотра
   const [photos, setPhotos] = useState<ProgressPhotoPreview[]>([]);
-  const photosRef = useRef<ProgressPhotoPreview[]>([]);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [savedBanner, setSavedBanner] = useState<boolean>(false);
 
-  // Держим актуальную ссылку на массив превью для очистки памяти при размонтировании
-  useEffect(() => {
-    photosRef.current = photos;
-  }, [photos]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    return () => {
-      photosRef.current.forEach((p) => URL.revokeObjectURL(p.previewUrl));
-    };
+    // Устанавливаем сегодняшнюю дату по умолчанию
+    const today = new Intl.DateTimeFormat('en-CA').format(new Date());
+    setWorkoutDate(today);
   }, []);
 
-  // Расчет тоннажа по каждому упражнению и общего тоннажа всей тренировки
+  // Расчет суммарной статистики и тоннажа
   const stats = useMemo(() => {
     let totalTonnage = 0;
     let totalSets = 0;
+    let totalReps = 0;
     const perExerciseTonnage: Record<string, number> = {};
 
-    for (const exercise of exercises) {
-      let exerciseSum = 0;
-      for (const s of exercise.sets) {
-        const validWeight = Number.isFinite(s.weight) && s.weight > 0 ? s.weight : 0;
-        const validReps = Number.isFinite(s.reps) && s.reps > 0 ? s.reps : 0;
-        exerciseSum += validWeight * validReps;
+    exercises.forEach((ex) => {
+      let exTonnage = 0;
+      ex.sets.forEach((set) => {
+        const weight = Number(set.weight) || 0;
+        const reps = Number(set.reps) || 0;
+        const setTonnage = weight * reps;
+        exTonnage += setTonnage;
         totalSets += 1;
-      }
-      exerciseSum = Math.round(exerciseSum * 100) / 100;
-      perExerciseTonnage[exercise.id] = exerciseSum;
-      totalTonnage += exerciseSum;
-    }
+        totalReps += reps;
+      });
+      perExerciseTonnage[ex.id] = Math.round(exTonnage * 10) / 10;
+      totalTonnage += exTonnage;
+    });
 
     return {
-      totalTonnage: Math.round(totalTonnage * 100) / 100,
+      totalTonnage: Math.round(totalTonnage * 10) / 10,
       totalSets,
+      totalReps,
       perExerciseTonnage,
     };
   }, [exercises]);
 
+  // Генерация точек для спарклайн-графика интенсивности тоннажа
+  const sparklinePoints = useMemo(() => {
+    const values = exercises.map((ex) => stats.perExerciseTonnage[ex.id] || 0);
+    if (values.length === 0) return '0,20 100,20';
+    const max = Math.max(...values, 100);
+    const min = Math.min(...values, 0);
+    const range = max - min || 1;
+    const width = 120;
+    const height = 32;
+
+    const points = values.map((val, idx) => {
+      const x = values.length === 1 ? width / 2 : (idx / (values.length - 1)) * width;
+      const y = height - ((val - min) / range) * (height - 6) - 3;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+
+    return points.join(' ');
+  }, [exercises, stats.perExerciseTonnage]);
+
   // Добавление нового упражнения
   const addExercise = () => {
+    hapticImpact('medium');
+    const newExId = createId();
     setExercises((prev) => [
       ...prev,
       {
-        id: createId(),
+        id: newExId,
         name: '',
-        sets: [{ id: createId(), weight: 20, reps: 10 }],
+        sets: [{ id: createId(), weight: 60, reps: 8 }],
       },
     ]);
   };
 
-  // Удаление упражнения
   const removeExercise = (exerciseId: string) => {
+    hapticImpact('light');
     setExercises((prev) => prev.filter((ex) => ex.id !== exerciseId));
   };
 
-  // Изменение названия упражнения
   const updateExerciseName = (exerciseId: string, name: string) => {
     setExercises((prev) =>
       prev.map((ex) => (ex.id === exerciseId ? { ...ex, name } : ex))
     );
   };
 
-  // Динамическое добавление подхода (копирует вес и повторения предыдущего подхода)
   const addSet = (exerciseId: string) => {
+    hapticImpact('light');
     setExercises((prev) =>
       prev.map((ex) => {
         if (ex.id !== exerciseId) return ex;
         const lastSet = ex.sets[ex.sets.length - 1];
-        const nextSet: ExerciseSetItem = {
+        const newSet: ExerciseSetItem = {
           id: createId(),
-          weight: lastSet ? lastSet.weight : 20,
-          reps: lastSet ? lastSet.reps : 10,
+          weight: lastSet ? lastSet.weight : 0,
+          reps: lastSet ? lastSet.reps : 8,
         };
-        return { ...ex, sets: [...ex.sets, nextSet] };
+        return { ...ex, sets: [...ex.sets, newSet] };
       })
     );
   };
 
-  // Обновление веса или повторений в конкретном подходе
-  const updateSet = (
-    exerciseId: string,
-    setId: string,
-    field: 'weight' | 'reps',
-    rawValue: string
-  ) => {
-    const parsed = rawValue === '' ? 0 : Number(rawValue);
-    const safeValue = Number.isNaN(parsed) || parsed < 0 ? 0 : parsed;
-
+  const removeSet = (exerciseId: string, setId: string) => {
+    hapticImpact('light');
     setExercises((prev) =>
       prev.map((ex) => {
         if (ex.id !== exerciseId) return ex;
-        return {
-          ...ex,
-          sets: ex.sets.map((s) =>
-            s.id === setId ? { ...s, [field]: safeValue } : s
-          ),
-        };
-      })
-    );
-  };
-
-  // Удаление подхода
-  const removeSet = (exerciseId: string, setId: string) => {
-    setExercises((prev) =>
-      prev.map((ex) => {
-        if (ex.id !== exerciseId || ex.sets.length <= 1) return ex;
+        if (ex.sets.length <= 1) return ex;
         return { ...ex, sets: ex.sets.filter((s) => s.id !== setId) };
       })
     );
   };
 
-  // Обработка выбора фото формы с генерацией локального превью
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const fileList = e.target.files;
-    if (!fileList || fileList.length === 0) return;
-
-    const addedPhotos: ProgressPhotoPreview[] = Array.from(fileList).map(
-      (file) => ({
-        id: createId(),
-        file,
-        previewUrl: URL.createObjectURL(file),
-        caption: '',
+  const updateSet = (
+    exerciseId: string,
+    setId: string,
+    field: 'weight' | 'reps',
+    val: string
+  ) => {
+    const num = Math.max(0, parseFloat(val) || 0);
+    setExercises((prev) =>
+      prev.map((ex) => {
+        if (ex.id !== exerciseId) return ex;
+        return {
+          ...ex,
+          sets: ex.sets.map((s) => (s.id === setId ? { ...s, [field]: num } : s)),
+        };
       })
     );
+  };
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    hapticImpact('medium');
+
+    const addedPhotos: ProgressPhotoPreview[] = Array.from(files).map((file) => ({
+      id: createId(),
+      file,
+      previewUrl: URL.createObjectURL(file),
+      caption: '',
+    }));
 
     setPhotos((prev) => [...prev, ...addedPhotos]);
     e.target.value = '';
   };
 
-  // Удаление фото прогресса и освобождение Object URL
   const removePhoto = (photoId: string) => {
+    hapticImpact('light');
     setPhotos((prev) => {
       const target = prev.find((p) => p.id === photoId);
       if (target) {
@@ -260,9 +277,9 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
     );
   };
 
-  // Формирование итогового пакета данных (готового к записи в Supabase)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    hapticImpact('medium');
     setIsSubmitting(true);
     setSavedBanner(false);
 
@@ -282,9 +299,7 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
             const maxWeight = Math.max(...ex.sets.map((s) => s.weight), 0);
             const avgReps = Math.max(
               1,
-              Math.round(
-                ex.sets.reduce((acc, s) => acc + s.reps, 0) / setsCount
-              )
+              Math.round(ex.sets.reduce((acc, s) => acc + s.reps, 0) / setsCount)
             );
 
             return {
@@ -309,7 +324,6 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
       if (onSubmitWorkout) {
         await onSubmitWorkout(payload);
       } else {
-        // Автоматическая запись в Supabase (workouts + workout_sets + workout-photos), если пользователь авторизован
         const supabase = getSupabaseBrowserClient();
         if (supabase) {
           const {
@@ -326,9 +340,7 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
               const ext = (p.file.name.split('.').pop() || 'jpg')
                 .toLowerCase()
                 .replace(/[^a-z0-9]/g, '');
-              const storagePath = `${user.id}/${yearMonth}/${createId()}.${
-                ext || 'jpg'
-              }`;
+              const storagePath = `${user.id}/${yearMonth}/${createId()}.${ext || 'jpg'}`;
               const { error: upErr } = await supabase.storage
                 .from('workout-photos')
                 .upload(storagePath, p.file, {
@@ -380,7 +392,7 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
               if (sErr) throw new Error(sErr.message);
             }
 
-            // Отправляем структурированное сообщение со всеми упражнениями в Telegram-бот
+            // Отправляем структурированный отчет в Telegram-бот
             void fetch('/api/telegram/notify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -403,62 +415,117 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
 
       setSubmitError(null);
       setSavedBanner(true);
-      setTimeout(() => setSavedBanner(false), 3500);
+      hapticNotification('success');
+      setTimeout(() => setSavedBanner(false), 4500);
     } catch (err) {
       setSubmitError(
         err instanceof Error ? err.message : 'Не удалось сохранить тренировку'
       );
+      hapticNotification('error');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      {/* Виджет сводной статистики текущей тренировки */}
-      <div className="rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 p-4 text-white shadow-md">
-        <div className="flex items-center justify-between">
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* 1. ШАПКА: SUMMARY-БЛОК В СТИЛЕ FITFUSION DARK LUXURY */}
+      <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-br from-[#26211F] via-[#201C1A] to-[#141211] p-5 shadow-2xl shadow-black/60">
+        {/* Декоративный теплый фоновый блик */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-16 -right-16 h-44 w-44 rounded-full bg-[#F5BA42]/10 blur-3xl"
+        />
+
+        <div className="relative flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-medium tracking-wide text-emerald-100 uppercase">
-              Общий тоннаж тренировки
-            </p>
-            <div className="mt-1 flex items-baseline gap-1.5">
-              <span className="text-3xl font-bold tracking-tight">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#F5BA42] px-2.5 py-0.5 text-[10px] font-black tracking-wider text-stone-950 uppercase shadow-sm">
+                <Sparkles className="h-3 w-3" />
+                {title || 'СИЛОВОЙ СПЛИТ'}
+              </span>
+              <span className="text-[11px] font-semibold tracking-wider text-[#A8A199] uppercase">
+                {WORKOUT_TYPE_LABELS[workoutType]}
+              </span>
+            </div>
+
+            <div className="mt-2.5 flex items-baseline gap-2">
+              <span className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-[#FAF7F5] tabular-nums">
                 {stats.totalTonnage.toLocaleString('ru-RU')}
               </span>
-              <span className="text-sm font-medium text-emerald-100">кг</span>
+              <span className="text-base font-bold text-[#F5BA42]">КГ</span>
             </div>
+            <p className="text-[11px] font-medium tracking-wide text-[#A8A199] uppercase">
+              Суммарный тоннаж сессии
+            </p>
           </div>
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
-            <Flame className="h-6 w-6 text-amber-300" />
+
+          {/* Мини-график интенсивности (Sparkline) цвета #F5BA42 */}
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex h-10 w-28 items-center justify-end">
+              <svg className="h-8 w-28 overflow-visible" viewBox="0 0 120 32">
+                <defs>
+                  <linearGradient id="goldGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#F5BA42" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="#F5BA42" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                <polyline
+                  fill="none"
+                  stroke="#F5BA42"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  points={sparklinePoints}
+                />
+              </svg>
+            </div>
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#F5BA42]">
+              <TrendingUp className="h-3 w-3" />
+              Интенсивность
+            </span>
           </div>
         </div>
 
-        <div className="mt-3 flex gap-4 border-t border-white/15 pt-3 text-xs text-emerald-50">
-          <span>
-            Упражнений: <strong>{exercises.length}</strong>
-          </span>
-          <span>
-            Рабочих подходов: <strong>{stats.totalSets}</strong>
-          </span>
-          {photos.length > 0 && (
-            <span>
-              Фото формы: <strong>{photos.length}</strong>
+        {/* Метрики сессии */}
+        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-3.5">
+          <div className="rounded-2xl border border-white/5 bg-[#141211]/60 px-2.5 py-2">
+            <span className="block text-[10px] font-bold text-[#A8A199] uppercase">
+              Упражнений
             </span>
-          )}
+            <span className="font-mono text-base font-bold text-[#FAF7F5] tabular-nums">
+              {exercises.length}
+            </span>
+          </div>
+          <div className="rounded-2xl border border-white/5 bg-[#141211]/60 px-2.5 py-2">
+            <span className="block text-[10px] font-bold text-[#A8A199] uppercase">
+              Подходов
+            </span>
+            <span className="font-mono text-base font-bold text-[#FAF7F5] tabular-nums">
+              {stats.totalSets}
+            </span>
+          </div>
+          <div className="rounded-2xl border border-white/5 bg-[#141211]/60 px-2.5 py-2">
+            <span className="block text-[10px] font-bold text-[#A8A199] uppercase">
+              Фото формы
+            </span>
+            <span className="font-mono text-base font-bold text-[#F5BA42] tabular-nums">
+              {photos.length}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Основные параметры тренировки */}
-      <section className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-          <Dumbbell className="h-4 w-4 text-emerald-500" />
-          Параметры тренировки
+      {/* 2. ПАРАМЕТРЫ ТРЕНИРОВКИ */}
+      <section className="space-y-3.5 rounded-3xl border border-white/5 bg-gradient-to-b from-[#26211F] to-[#1D1918] p-4.5 shadow-xl shadow-black/40">
+        <h2 className="flex items-center gap-2 text-xs font-black tracking-wider text-[#FAF7F5] uppercase">
+          <Dumbbell className="h-4 w-4 text-[#F5BA42]" />
+          Параметры сплита
         </h2>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+            <label className="mb-1 block text-[11px] font-semibold text-[#A8A199] uppercase">
               Дата
             </label>
             <input
@@ -466,21 +533,21 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
               value={workoutDate}
               onChange={(e) => setWorkoutDate(e.target.value)}
               required
-              className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="w-full rounded-2xl border border-white/10 bg-[#141211] px-3 py-2.5 text-sm font-medium text-[#FAF7F5] focus:border-[#F5BA42] focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+            <label className="mb-1 block text-[11px] font-semibold text-[#A8A199] uppercase">
               Тип тренировки
             </label>
             <select
               value={workoutType}
               onChange={(e) => setWorkoutType(e.target.value as WorkoutType)}
-              className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="w-full rounded-2xl border border-white/10 bg-[#141211] px-3 py-2.5 text-sm font-medium text-[#FAF7F5] focus:border-[#F5BA42] focus:outline-none"
             >
               {(Object.keys(WORKOUT_TYPE_LABELS) as WorkoutType[]).map((key) => (
-                <option key={key} value={key}>
+                <option key={key} value={key} className="bg-[#1D1918] text-[#FAF7F5]">
                   {WORKOUT_TYPE_LABELS[key]}
                 </option>
               ))}
@@ -489,31 +556,31 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-            Название / Сплит
+          <label className="mb-1 block text-[11px] font-semibold text-[#A8A199] uppercase">
+            Название тренировки
           </label>
           <input
             type="text"
-            placeholder="Например: Грудь + Трицепс или Тяжелый верх"
+            placeholder="Например: Тяжелый верх или Грудь + Трицепс"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            className="w-full rounded-2xl border border-white/10 bg-[#141211] px-3.5 py-2.5 text-sm font-medium text-[#FAF7F5] placeholder:text-[#A8A199]/40 focus:border-[#F5BA42] focus:outline-none"
           />
         </div>
       </section>
 
-      {/* Динамический список упражнений и подходов */}
-      <section className="space-y-3">
+      {/* 3. УПРАЖНЕНИЯ И ПОДХОДЫ */}
+      <section className="space-y-3.5">
         <div className="flex items-center justify-between px-1">
-          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            Упражнения и подходы
+          <h2 className="text-xs font-black tracking-wider text-[#FAF7F5] uppercase">
+            Упражнения и сеты
           </h2>
           <button
             type="button"
             onClick={addExercise}
-            className="inline-flex items-center gap-1 rounded-xl bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-500/20 active:scale-95 dark:text-emerald-400"
+            className="inline-flex items-center gap-1.5 rounded-2xl bg-[#F5BA42] px-3.5 py-1.5 text-xs font-bold text-stone-950 shadow-md shadow-[#F5BA42]/15 transition hover:bg-[#e5ad3a] active:scale-95"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
             Упражнение
           </button>
         </div>
@@ -524,45 +591,43 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
           return (
             <div
               key={exercise.id}
-              className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-xs dark:border-zinc-800 dark:bg-zinc-900"
+              className="rounded-3xl border border-white/5 bg-gradient-to-b from-[#26211F] to-[#1D1918] p-4.5 shadow-xl shadow-black/40"
             >
-              <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-xs font-bold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-[#F5BA42]/15 font-mono text-xs font-black text-[#F5BA42] ring-1 ring-[#F5BA42]/25">
                   {exIndex + 1}
                 </span>
                 <input
                   type="text"
                   required
-                  placeholder="Название упражнения (Жим, Присед, Тяга...)"
+                  placeholder="Название (Жим, Присед, Тяга...)"
                   value={exercise.name}
-                  onChange={(e) =>
-                    updateExerciseName(exercise.id, e.target.value)
-                  }
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-sm font-medium text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  onChange={(e) => updateExerciseName(exercise.id, e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-[#141211] px-3.5 py-2 text-sm font-bold text-[#FAF7F5] placeholder:text-[#A8A199]/40 focus:border-[#F5BA42] focus:outline-none"
                 />
                 {exercises.length > 1 && (
                   <button
                     type="button"
                     onClick={() => removeExercise(exercise.id)}
                     aria-label="Удалить упражнение"
-                    className="rounded-xl p-2 text-zinc-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/40"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 text-[#A8A199] transition hover:bg-rose-950/40 hover:text-rose-400 active:scale-95"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 )}
               </div>
 
-              {/* Заголовки колонок таблицы подходов */}
-              <div className="mt-3 grid grid-cols-12 items-center gap-2 px-1 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+              {/* Заголовки таблицы подходов */}
+              <div className="mt-3.5 grid grid-cols-12 items-center gap-2 px-1 text-[10px] font-bold tracking-wider text-[#A8A199] uppercase">
                 <span className="col-span-2">Сет</span>
-                <span className="col-span-4">Вес (кг)</span>
-                <span className="col-span-3">Повторы</span>
+                <span className="col-span-4 text-center">Вес (кг)</span>
+                <span className="col-span-3 text-center">Повторы</span>
                 <span className="col-span-2 text-right">Тоннаж</span>
                 <span className="col-span-1" />
               </div>
 
-              {/* Строки подходов */}
-              <div className="mt-1.5 space-y-2">
+              {/* Строки подходов в темных плашках */}
+              <div className="mt-2 space-y-2">
                 {exercise.sets.map((setItem, setIdx) => {
                   const setVolume =
                     Math.round(setItem.weight * setItem.reps * 10) / 10;
@@ -570,10 +635,10 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
                   return (
                     <div
                       key={setItem.id}
-                      className="grid grid-cols-12 items-center gap-2"
+                      className="grid grid-cols-12 items-center gap-2 rounded-2xl border border-white/5 bg-[#141211] p-1.5"
                     >
-                      <div className="col-span-2">
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-zinc-100 text-xs font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                      <div className="col-span-2 flex justify-center">
+                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[#24201E] font-mono text-xs font-bold text-[#A8A199]">
                           #{setIdx + 1}
                         </span>
                       </div>
@@ -587,14 +652,9 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
                           value={setItem.weight || ''}
                           placeholder="0"
                           onChange={(e) =>
-                            updateSet(
-                              exercise.id,
-                              setItem.id,
-                              'weight',
-                              e.target.value
-                            )
+                            updateSet(exercise.id, setItem.id, 'weight', e.target.value)
                           }
-                          className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-center text-sm font-medium text-zinc-900 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="w-full rounded-xl border border-white/5 bg-[#1E1A18] px-2 py-2 text-center font-mono text-base font-bold text-[#FAF7F5] tabular-nums focus:border-[#F5BA42] focus:outline-none"
                         />
                       </div>
 
@@ -607,28 +667,23 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
                           value={setItem.reps || ''}
                           placeholder="0"
                           onChange={(e) =>
-                            updateSet(
-                              exercise.id,
-                              setItem.id,
-                              'reps',
-                              e.target.value
-                            )
+                            updateSet(exercise.id, setItem.id, 'reps', e.target.value)
                           }
-                          className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-center text-sm font-medium text-zinc-900 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="w-full rounded-xl border border-white/5 bg-[#1E1A18] px-2 py-2 text-center font-mono text-base font-bold text-[#FAF7F5] tabular-nums focus:border-[#F5BA42] focus:outline-none"
                         />
                       </div>
 
-                      <div className="col-span-2 text-right text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                        {setVolume} кг
+                      <div className="col-span-2 text-right font-mono text-xs font-bold text-[#F5BA42] tabular-nums">
+                        {setVolume}
                       </div>
 
-                      <div className="col-span-1 flex justify-end">
+                      <div className="col-span-1 flex justify-center">
                         <button
                           type="button"
                           disabled={exercise.sets.length <= 1}
                           onClick={() => removeSet(exercise.id, setItem.id)}
                           aria-label="Удалить подход"
-                          className="rounded-lg p-1 text-zinc-400 transition hover:text-red-500 disabled:opacity-25"
+                          className="flex h-7 w-7 items-center justify-center rounded-lg text-[#A8A199] transition hover:text-rose-400 disabled:opacity-20 active:scale-95"
                         >
                           <X className="h-4 w-4" />
                         </button>
@@ -638,39 +693,39 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
                 })}
               </div>
 
-              {/* Подвал карточки упражнения: кнопка добавления подхода и тоннаж упражнения */}
-              <div className="mt-3 flex items-center justify-between border-t border-zinc-100 pt-3 dark:border-zinc-800">
+              {/* Подвал карточки упражнения: кнопка добавления сета и тоннаж */}
+              <div className="mt-3.5 flex items-center justify-between border-t border-white/5 pt-3">
                 <button
                   type="button"
                   onClick={() => addSet(exercise.id)}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-200 active:scale-95 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                  className="inline-flex items-center gap-1.5 rounded-2xl border border-white/5 bg-[#24201E] px-3.5 py-1.5 text-xs font-bold text-[#FAF7F5] transition hover:bg-white/10 active:scale-95"
                 >
-                  <Copy className="h-3.5 w-3.5 text-emerald-500" />
-                  + Добавить подход
+                  <Copy className="h-3.5 w-3.5 text-[#F5BA42]" />
+                  + Подход
                 </button>
 
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Тоннаж:{' '}
-                  <strong className="font-semibold text-zinc-900 dark:text-zinc-100">
+                <div className="text-right">
+                  <span className="text-[11px] font-semibold text-[#A8A199]">Тоннаж: </span>
+                  <span className="font-mono text-sm font-black text-[#F5BA42] tabular-nums">
                     {exTonnage.toLocaleString('ru-RU')} кг
-                  </strong>
-                </span>
+                  </span>
+                </div>
               </div>
             </div>
           );
         })}
       </section>
 
-      {/* Загрузка фото прогресса (формы) с предпросмотром */}
-      <section className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
+      {/* 4. БЛОК ФОТО ФОРМЫ (ПРЕМИАЛЬНЫЙ POLAROID / GALLERY СТИЛЬ) */}
+      <section className="space-y-3.5 rounded-3xl border border-white/5 bg-gradient-to-b from-[#26211F] to-[#1D1918] p-4.5 shadow-xl shadow-black/40">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-              <Camera className="h-4 w-4 text-emerald-500" />
-              Фото формы (прогресса)
+            <h2 className="flex items-center gap-2 text-xs font-black tracking-wider text-[#FAF7F5] uppercase">
+              <Camera className="h-4 w-4 text-[#F5BA42]" />
+              Фото формы и прогресса
             </h2>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Приватное хранение в бакете workout-photos
+            <p className="text-[11px] text-[#A8A199]">
+              Приватное шифрованное хранение в облаке
             </p>
           </div>
 
@@ -681,10 +736,10 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
               step="0.1"
               min="30"
               max="250"
-              placeholder="Вес тела, кг"
+              placeholder="Вес, кг"
               value={bodyWeight}
               onChange={(e) => setBodyWeight(e.target.value)}
-              className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-xs text-zinc-900 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="w-full rounded-2xl border border-white/10 bg-[#141211] px-3 py-1.5 text-center font-mono text-xs font-bold text-[#F5BA42] tabular-nums placeholder:text-[#A8A199]/40 focus:border-[#F5BA42] focus:outline-none"
             />
           </div>
         </div>
@@ -698,48 +753,53 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
           className="hidden"
         />
 
+        {/* Кнопка съемки / выбора фото в стиле Luxury Studio */}
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="flex w-full flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-zinc-300 bg-zinc-50/70 py-5 text-xs font-medium text-zinc-600 transition hover:border-emerald-500 hover:text-emerald-600 active:scale-[0.99] dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-300"
+          className="group flex w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-[#141211]/80 py-6 text-xs font-bold text-[#FAF7F5] transition active:scale-[0.99] hover:border-[#F5BA42]/60 hover:bg-[#141211]"
         >
-          <Camera className="h-6 w-6 text-emerald-500" />
-          <span>Снять на камеру iPhone или выбрать из Медиатеки</span>
-          <span className="text-[11px] text-zinc-400">
-            Нативный выбор iOS · мгновенный предпросмотр
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F5BA42]/10 text-[#F5BA42] ring-1 ring-[#F5BA42]/25 transition-transform duration-200 group-hover:scale-110">
+            <Camera className="h-5 w-5" strokeWidth={2.2} />
+          </span>
+          <span className="uppercase tracking-wider">
+            Снять форму на iPhone или выбрать фото
+          </span>
+          <span className="text-[10px] font-medium text-[#A8A199]">
+            Формат галереи Polaroid · мгновенный рендер
           </span>
         </button>
 
-        {/* Сетка предпросмотра выбранных фотографий */}
+        {/* Сетка фото прогресса в стиле Polaroid с размытым фоном */}
         {photos.length > 0 && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {photos.map((photo) => (
               <div
                 key={photo.id}
-                className="group relative overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800"
+                className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[#141211] p-1.5 shadow-lg"
               >
-                <div className="relative aspect-[3/4] w-full">
+                <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-black">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={photo.previewUrl}
-                    alt="Предпросмотр фото формы"
-                    className="h-full w-full object-cover"
+                    alt="Фото формы"
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                   <button
                     type="button"
                     onClick={() => removePhoto(photo.id)}
                     aria-label="Удалить фото"
-                    className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/65 text-white backdrop-blur-xs transition hover:bg-red-600"
+                    className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/75 text-white backdrop-blur-md transition hover:bg-rose-600 active:scale-95"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
                 <input
                   type="text"
-                  placeholder="Ракурс / заметка..."
+                  placeholder="Ракурс / вес..."
                   value={photo.caption}
                   onChange={(e) => updatePhotoCaption(photo.id, e.target.value)}
-                  className="w-full border-t border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-800 placeholder:text-zinc-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+                  className="mt-1.5 w-full bg-transparent px-2 py-1 text-center text-[11px] font-medium text-[#FAF7F5] placeholder:text-[#A8A199]/40 focus:outline-none"
                 />
               </div>
             ))}
@@ -747,14 +807,14 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
         )}
       </section>
 
-      {/* Самочувствие и заметки */}
-      <section className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
+      {/* 5. САМОЧУВСТВИЕ И ЗАМЕТКИ */}
+      <section className="space-y-3.5 rounded-3xl border border-white/5 bg-gradient-to-b from-[#26211F] to-[#1D1918] p-4.5 shadow-xl shadow-black/40">
         <div className="flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            <HeartPulse className="h-4 w-4 text-rose-500" />
-            Самочувствие
+          <h2 className="flex items-center gap-2 text-xs font-black tracking-wider text-[#FAF7F5] uppercase">
+            <HeartPulse className="h-4 w-4 text-[#F5BA42]" />
+            Самочувствие & Пульс
           </h2>
-          <span className="rounded-lg bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+          <span className="rounded-full bg-[#F5BA42] px-2.5 py-0.5 font-mono text-xs font-black text-stone-950">
             {wellbeingRating} / 10
           </span>
         </div>
@@ -764,39 +824,43 @@ export function WorkoutForm({ onSubmitWorkout }: WorkoutFormProps) {
           min={1}
           max={10}
           value={wellbeingRating}
-          onChange={(e) => setWellbeingRating(Number(e.target.value))}
-          className="h-2 w-full cursor-pointer accent-emerald-600"
+          onChange={(e) => {
+            hapticImpact('light');
+            setWellbeingRating(Number(e.target.value));
+          }}
+          className="h-2 w-full cursor-pointer accent-[#F5BA42]"
         />
 
         <textarea
           rows={2}
-          placeholder="Как прошла тренировка? Сон, энергия, пульс, ощущения в связках..."
+          placeholder="Сон, уровень энергии, памп, ощущения в связках..."
           value={wellbeingNotes}
           onChange={(e) => setWellbeingNotes(e.target.value)}
-          className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+          className="w-full rounded-2xl border border-white/10 bg-[#141211] p-3 text-sm text-[#FAF7F5] placeholder:text-[#A8A199]/40 focus:border-[#F5BA42] focus:outline-none"
         />
       </section>
 
       {submitError && (
-        <div className="flex items-center gap-2 rounded-2xl bg-rose-500/15 px-4 py-3 text-sm font-medium text-rose-700 dark:text-rose-300">
-          <AlertCircle className="h-5 w-5 shrink-0 text-rose-500" />
+        <div className="flex items-center gap-2 rounded-2xl border border-rose-900/40 bg-[#4A1521]/60 px-4 py-3 text-sm font-medium text-rose-300">
+          <AlertCircle className="h-5 w-5 shrink-0 text-rose-400" />
           {submitError}
         </div>
       )}
 
       {savedBanner && (
-        <div className="flex items-center gap-2 rounded-2xl bg-emerald-500/15 px-4 py-3 text-sm font-medium text-emerald-800 dark:text-emerald-300">
-          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-          Тренировка успешно сохранена! Общий тоннаж: {stats.totalTonnage} кг.
+        <div className="flex items-center gap-2.5 rounded-2xl border border-[#F5BA42]/30 bg-gradient-to-r from-[#26211F] to-[#1D1918] px-4 py-3.5 text-sm font-bold text-[#FAF7F5] shadow-xl shadow-black/60">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-[#F5BA42]" />
+          <span>Тренировка сохранена и отправлена в Telegram! Тоннаж: {stats.totalTonnage} кг</span>
         </div>
       )}
 
+      {/* 6. ГЛАВНАЯ КНОПКА СОХРАНЕНИЯ: НАСЫЩЕННЫЙ ЗОЛОТОЙ АКЦЕНТ #F5BA42 */}
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full rounded-2xl bg-emerald-600 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 active:scale-[0.99] disabled:opacity-60"
+        className="w-full rounded-2xl bg-[#F5BA42] py-4 text-sm font-black tracking-wider text-stone-950 uppercase shadow-xl shadow-[#F5BA42]/20 transition-all duration-150 hover:bg-[#e5ad3a] active:scale-[0.98] disabled:opacity-60"
       >
-        {isSubmitting ? 'Сохранение тренировки...' : 'Сохранить тренировку'}
+        {isSubmitting ? 'Сохранение в облако...' : 'Сохранить тренировку'}
       </button>
     </form>
   );

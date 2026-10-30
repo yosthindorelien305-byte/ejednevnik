@@ -8,10 +8,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#fafafa' },
-    { media: '(prefers-color-scheme: dark)', color: '#09090b' },
-  ],
+  themeColor: '#141211',
 };
 
 // Метатеги для нативного запуска PWA с экрана «Домой» на iPhone (Standalone режим)
@@ -47,14 +44,17 @@ export const metadata: Metadata = {
   },
 };
 
+import { TelegramInit } from '@/components/layout/TelegramInit';
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ru">
-      <body className="min-h-dvh bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+    <html lang="ru" className="bg-[#141211] text-[#FAF7F5]">
+      <body className="min-h-dvh bg-[#141211] text-[#FAF7F5] antialiased selection:bg-[#F5BA42]/30 selection:text-[#FAF7F5]">
+        <TelegramInit />
         {children}
       </body>
     </html>

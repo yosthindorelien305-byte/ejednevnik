@@ -10,6 +10,7 @@ import {
   Terminal,
   type LucideIcon,
 } from 'lucide-react';
+import { hapticImpact } from '@/lib/telegram/webapp';
 
 interface IosTabItem {
   href: string;
@@ -18,7 +19,6 @@ interface IosTabItem {
   icon: LucideIcon;
 }
 
-// 5 разделов нижнего таббара в стиле iOS Safari / Standalone PWA
 const IOS_TABS: IosTabItem[] = [
   {
     href: '/',
@@ -34,7 +34,7 @@ const IOS_TABS: IosTabItem[] = [
   },
   {
     href: '/reading',
-    shortLabel: 'Книги и Коран',
+    shortLabel: 'Книги',
     fullLabel: 'Книги и Коран',
     icon: BookOpen,
   },
@@ -46,7 +46,7 @@ const IOS_TABS: IosTabItem[] = [
   },
   {
     href: '/vibecoding',
-    shortLabel: 'Вайбкодинг',
+    shortLabel: 'Кодинг',
     fullLabel: 'Вайбкодинг',
     icon: Terminal,
   },
@@ -63,9 +63,9 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Нижняя панель вкладок"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-black/[0.08] bg-white/80 pb-safe backdrop-blur-2xl backdrop-saturate-150 dark:border-white/[0.08] dark:bg-zinc-950/80"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-white/5 bg-[#1A1615]/85 pb-safe backdrop-blur-2xl shadow-2xl shadow-black/80"
     >
-      <ul className="mx-auto grid h-[52px] max-w-lg grid-cols-5 items-center px-1">
+      <ul className="mx-auto grid h-[56px] max-w-lg grid-cols-5 items-center px-1">
         {IOS_TABS.map((tab) => {
           const Icon = tab.icon;
           const active = isTabActive(tab.href);
@@ -74,19 +74,34 @@ export function BottomNav() {
             <li key={tab.href} className="h-full">
               <Link
                 href={tab.href}
+                onClick={() => hapticImpact('light')}
                 aria-label={tab.fullLabel}
                 aria-current={active ? 'page' : undefined}
-                className={`flex h-full flex-col items-center justify-center gap-0.5 transition-transform duration-150 active:scale-92 ${
+                className={`group relative flex h-full flex-col items-center justify-center gap-1 transition-all duration-150 active:scale-95 ${
                   active
-                    ? 'text-emerald-600 dark:text-emerald-400'
-                    : 'text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300'
+                    ? 'text-[#F5BA42]'
+                    : 'text-[#A8A199]/60 hover:text-[#FAF7F5]'
                 }`}
               >
-                <Icon
-                  className="h-[22px] w-[22px] shrink-0"
-                  strokeWidth={active ? 2.35 : 1.8}
-                />
-                <span className="max-w-full truncate px-0.5 text-[9.5px] leading-none font-medium tracking-tighter sm:text-[10px] sm:tracking-tight">
+                {/* Золотой микро-индикатор активной вкладки сверху */}
+                {active && (
+                  <span className="absolute top-0 h-0.5 w-7 rounded-full bg-[#F5BA42] shadow-[0_0_8px_#F5BA42]" />
+                )}
+
+                <div className="relative">
+                  <Icon
+                    className={`h-[21px] w-[21px] shrink-0 transition-transform duration-200 ${
+                      active ? 'scale-110 drop-shadow-[0_2px_8px_rgba(245,186,66,0.35)]' : 'group-hover:scale-105'
+                    }`}
+                    strokeWidth={active ? 2.4 : 1.8}
+                  />
+                </div>
+
+                <span
+                  className={`max-w-full truncate px-0.5 text-[10px] leading-none tracking-tight ${
+                    active ? 'font-bold text-[#FAF7F5]' : 'font-medium'
+                  }`}
+                >
                   {tab.shortLabel}
                 </span>
               </Link>

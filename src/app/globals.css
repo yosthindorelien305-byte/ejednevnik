@@ -1,23 +1,42 @@
 @import "tailwindcss";
 
 @layer base {
+  :root {
+    --bg-app: #141211;
+    --bg-card: #24201E;
+    --bg-card-from: #26211F;
+    --bg-card-to: #1D1918;
+    --accent-gold: #F5BA42;
+    --accent-wine: #5B1626;
+    --accent-wine-dark: #4A1521;
+    --text-primary: #FAF7F5;
+    --text-muted: #A8A199;
+  }
+
   html {
     /* Отключаем синюю вспышку при тапе в iOS Safari и автоувеличение шрифтов */
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
+    background-color: #141211;
+    color: #FAF7F5;
   }
 
   body {
-    @apply bg-zinc-50 text-zinc-900 antialiased select-none dark:bg-zinc-950 dark:text-zinc-100;
+    background-color: #141211;
+    color: #FAF7F5;
+    user-select: none;
+    -webkit-user-select: none;
     /* Предотвращаем резиновый отскок всего окна в режиме Standalone */
     overscroll-behavior-y: none;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   /* Разрешаем выделение текста внутри полей ввода и заметок */
   input,
   textarea,
   [contenteditable="true"] {
-    @apply select-text;
+    user-select: text;
+    -webkit-user-select: text;
   }
 
   /* В iOS Safari шрифт меньше 16px в полях ввода вызывает принудительный автозум экрана */
@@ -27,6 +46,22 @@
     textarea {
       font-size: 16px !important;
     }
+  }
+
+  /* Стилизация скроллбара под эстетику темного графита */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #141211;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #2E2825;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #F5BA42;
   }
 }
 
@@ -48,8 +83,8 @@
     padding-right: env(safe-area-inset-right, 0px);
   }
 
-  /* Отступ основного контента снизу с учетом высоты iOS Tab Bar + нижней полоски жестов */
+  /* Отступ основного контента снизу с учетом высоты плавающего таббара + нижней полоски жестов */
   .pb-tabbar-safe {
-    padding-bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
   }
 }
