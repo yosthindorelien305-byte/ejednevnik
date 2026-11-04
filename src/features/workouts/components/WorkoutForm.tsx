@@ -28,6 +28,7 @@ import {
 import {
   getUserBodyProfile,
   fetchUserBodyProfileAsync,
+  saveUserBodyProfile,
   type UserBodyProfile,
 } from '../lib/bodyProfile';
 import { BodyProfileModal } from './BodyProfileModal';
@@ -418,6 +419,50 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
     }));
   };
 
+  const updateDirectBodyWeight = (val: string) => {
+    setBodyWeight(val);
+    const num = parseFloat(val);
+    if (!isNaN(num) && num >= 20 && num <= 300) {
+      const updated: UserBodyProfile = {
+        ...userProfile,
+        weightKg: Math.round(num * 10) / 10,
+        isCustom: true,
+      };
+      setUserProfile(updated);
+      void saveUserBodyProfile(updated);
+    }
+  };
+
+  const updateDirectHeight = (val: string) => {
+    const num = parseFloat(val);
+    if (!isNaN(num) && num >= 50 && num <= 260) {
+      const updated: UserBodyProfile = {
+        ...userProfile,
+        heightCm: Math.round(num),
+        isCustom: true,
+      };
+      setUserProfile(updated);
+      void saveUserBodyProfile(updated);
+    }
+  };
+
+  const updateDirectRest = (val: string) => {
+    const num = parseInt(val, 10);
+    if (!isNaN(num) && num >= 10 && num <= 600) {
+      const updated: UserBodyProfile = {
+        ...userProfile,
+        defaultRestSeconds: num,
+        isCustom: true,
+      };
+      setUserProfile(updated);
+      setTimerState((prev) => ({
+        ...prev,
+        totalSeconds: num,
+      }));
+      void saveUserBodyProfile(updated);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     hapticImpact('medium');
@@ -745,38 +790,98 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
         </div>
       </div>
 
-      {/* ПАНЕЛЬ ПАРАМЕТРОВ ТЕЛА И АККАУНТА (РОСТ, ВЕС, ТАЙМЕР ОТДЫХА) */}
-      <div className="flex items-center justify-between rounded-3xl border border-white/5 bg-gradient-to-r from-[#24201E] to-[#1E1A18] px-4 py-3 shadow-lg shadow-black/40">
-        <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#F5BA42]/15 text-[#F5BA42] ring-1 ring-[#F5BA42]/25">
-            <Scale className="h-4 w-4" />
-          </span>
-          <div className="text-xs">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold text-[#A8A199] uppercase">Профиль тела:</span>
-              <span className="font-mono font-bold text-[#FAF7F5] tabular-nums">
-                {currentBodyWeightNum} кг · {userProfile.heightCm} см
+      {/* ПАНЕЛЬ ПАРАМЕТРОВ ТЕЛА И АККАУНТА (ИНТЕРАКТИВНЫЕ ИНПУТЫ: ВЕС, РОСТ, ТАЙМЕР) */}
+      <div className="rounded-3xl border border-white/5 bg-gradient-to-r from-[#24201E] to-[#1E1A18] p-4 shadow-lg shadow-black/40">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#F5BA42]/15 text-[#F5BA42] ring-1 ring-[#F5BA42]/25">
+              <Scale className="h-4 w-4" />
+            </span>
+            <div>
+              <span className="text-xs font-black tracking-wider text-[#FAF7F5] uppercase">
+                Профиль тела
+              </span>
+              <span className="ml-2 rounded-md bg-[#F5BA42]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#F5BA42]">
+                Мгновенное автосохранение
               </span>
             </div>
-            <div className="flex items-center gap-1.5 text-[10px] text-[#A8A199]">
-              <Timer className="h-3 w-3 text-[#F5BA42]" />
-              <span>Таймер отдыха:</span>
-              <span className="font-mono font-bold text-[#F5BA42]">{userProfile.defaultRestSeconds} сек</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              hapticImpact('light');
+              setIsProfileModalOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#141211] px-2.5 py-1 text-[11px] font-bold text-[#F5BA42] transition hover:bg-[#F5BA42]/10 active:scale-95"
+          >
+            <Sliders className="h-3 w-3" />
+            <span>Подробнее / ИМТ</span>
+          </button>
+        </div>
+
+        {/* 3 интерактивных поля с прямым вводом прямо на панели */}
+        <div className="mt-3 grid grid-cols-3 gap-2 border-t border-white/5 pt-3">
+          {/* 1. ВЕС ТЕЛА */}
+          <div className="rounded-2xl border border-white/5 bg-[#141211] p-2 text-center transition focus-within:border-[#F5BA42]">
+            <span className="block text-[10px] font-bold text-[#A8A199] uppercase">
+              Вес тела
+            </span>
+            <div className="mt-1 flex items-center justify-center gap-1">
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.5"
+                min="30"
+                max="250"
+                value={bodyWeight}
+                onChange={(e) => updateDirectBodyWeight(e.target.value)}
+                className="w-14 bg-transparent text-center font-mono text-base font-black text-[#F5BA42] tabular-nums focus:outline-none"
+              />
+              <span className="font-mono text-xs font-bold text-[#A8A199]">кг</span>
+            </div>
+          </div>
+
+          {/* 2. РОСТ */}
+          <div className="rounded-2xl border border-white/5 bg-[#141211] p-2 text-center transition focus-within:border-[#F5BA42]">
+            <span className="block text-[10px] font-bold text-[#A8A199] uppercase">
+              Рост
+            </span>
+            <div className="mt-1 flex items-center justify-center gap-1">
+              <input
+                type="number"
+                inputMode="numeric"
+                step="1"
+                min="100"
+                max="250"
+                value={userProfile.heightCm || 178}
+                onChange={(e) => updateDirectHeight(e.target.value)}
+                className="w-14 bg-transparent text-center font-mono text-base font-black text-[#FAF7F5] tabular-nums focus:outline-none"
+              />
+              <span className="font-mono text-xs font-bold text-[#A8A199]">см</span>
+            </div>
+          </div>
+
+          {/* 3. ТАЙМЕР ОТДЫХА */}
+          <div className="rounded-2xl border border-white/5 bg-[#141211] p-2 text-center transition focus-within:border-[#F5BA42]">
+            <span className="block text-[10px] font-bold text-[#A8A199] uppercase">
+              Отдых
+            </span>
+            <div className="mt-1 flex items-center justify-center gap-1">
+              <input
+                type="number"
+                inputMode="numeric"
+                step="5"
+                min="10"
+                max="600"
+                value={userProfile.defaultRestSeconds || 90}
+                onChange={(e) => updateDirectRest(e.target.value)}
+                className="w-14 bg-transparent text-center font-mono text-base font-black text-[#F5BA42] tabular-nums focus:outline-none"
+              />
+              <span className="font-mono text-xs font-bold text-[#A8A199]">сек</span>
             </div>
           </div>
         </div>
-
-        <button
-          type="button"
-          onClick={() => {
-            hapticImpact('light');
-            setIsProfileModalOpen(true);
-          }}
-          className="inline-flex items-center gap-1.5 rounded-2xl border border-white/10 bg-[#141211] px-3 py-1.5 text-xs font-bold text-[#F5BA42] transition hover:bg-[#F5BA42]/10 active:scale-95"
-        >
-          <Sliders className="h-3.5 w-3.5" />
-          <span>Изменить</span>
-        </button>
       </div>
 
       {/* 2. ПАРАМЕТРЫ ТРЕНИРОВКИ */}
@@ -878,11 +983,11 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
               </div>
 
               {/* Переключатель: Учитывать свой вес тела в подходах */}
-              <div className="mt-3 flex items-center justify-between rounded-2xl border border-white/5 bg-[#141211]/80 px-3 py-2">
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/5 bg-[#141211]/80 px-3 py-2.5">
                 <button
                   type="button"
                   onClick={() => toggleExerciseBodyweight(exercise.id)}
-                  className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-[11px] font-bold transition active:scale-95 ${
+                  className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition active:scale-95 ${
                     exercise.includeBodyweight
                       ? 'bg-[#F5BA42] text-stone-950 shadow-md shadow-[#F5BA42]/20'
                       : 'border border-white/10 bg-[#1E1A18] text-[#A8A199] hover:text-[#FAF7F5]'
@@ -891,18 +996,33 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                   <Scale className="h-3.5 w-3.5" />
                   <span>
                     {exercise.includeBodyweight
-                      ? `Свой вес включен (+${currentBodyWeightNum} кг)`
-                      : 'Считать свой вес'}
+                      ? `Режим «Свой вес»: ВКЛЮЧЕН`
+                      : 'Включить режим «Свой вес»'}
                   </span>
                 </button>
 
-                <div className="text-right">
+                {exercise.includeBodyweight ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-[#A8A199] uppercase">Базовый вес:</span>
+                    <div className="flex items-center gap-1 rounded-xl border border-[#F5BA42]/30 bg-[#1E1A18] px-2 py-0.5">
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        step="0.5"
+                        min="30"
+                        max="250"
+                        value={bodyWeight}
+                        onChange={(e) => updateDirectBodyWeight(e.target.value)}
+                        className="w-14 bg-transparent text-center font-mono text-xs font-black text-[#F5BA42] tabular-nums focus:outline-none"
+                      />
+                      <span className="font-mono text-xs font-bold text-[#F5BA42]">кг</span>
+                    </div>
+                  </div>
+                ) : (
                   <span className="font-mono text-[10px] text-[#A8A199]">
-                    {exercise.includeBodyweight
-                      ? `База: ${currentBodyWeightNum} кг + отягощение`
-                      : 'Вес снаряда'}
+                    Учитывается только вес снаряда
                   </span>
-                </div>
+                )}
               </div>
 
               {/* Заголовки таблицы подходов */}
@@ -1093,7 +1213,7 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
               max="250"
               placeholder="Вес, кг"
               value={bodyWeight}
-              onChange={(e) => setBodyWeight(e.target.value)}
+              onChange={(e) => updateDirectBodyWeight(e.target.value)}
               className="w-full rounded-2xl border border-white/10 bg-[#141211] px-3 py-1.5 text-center font-mono text-xs font-bold text-[#F5BA42] tabular-nums placeholder:text-[#A8A199]/40 focus:border-[#F5BA42] focus:outline-none"
             />
           </div>
