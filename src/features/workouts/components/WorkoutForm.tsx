@@ -6,7 +6,6 @@ import {
   Trash2,
   Camera,
   Dumbbell,
-  Flame,
   Copy,
   CheckCircle2,
   X,
@@ -14,6 +13,10 @@ import {
   AlertCircle,
   TrendingUp,
   Sparkles,
+  Timer,
+  Scale,
+  Sliders,
+  Check,
 } from 'lucide-react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { hapticImpact, hapticNotification } from '@/lib/telegram/webapp';
@@ -22,6 +25,12 @@ import {
   getLocalCachedWorkouts,
   type WorkoutHistoryItem,
 } from './WorkoutHistory';
+import {
+  getUserBodyProfile,
+  type UserBodyProfile,
+} from '../lib/bodyProfile';
+import { BodyProfileModal } from './BodyProfileModal';
+import { RestTimerBar, type ActiveRestTimerState } from './RestTimerBar';
 
 // Типы тренировки в соответствии с ENUM workout_type в Supabase
 export type WorkoutType =
@@ -34,14 +43,16 @@ export type WorkoutType =
 
 export interface ExerciseSetItem {
   id: string;
-  weight: number; // Рабочий вес в кг
+  weight: number; // Рабочий вес или отягощение в кг
   reps: number;   // Количество повторений
+  completed?: boolean; // Отмечен ли подход выполненным
 }
 
 export interface ExerciseFormItem {
   id: string;
   name: string;
   sets: ExerciseSetItem[];
+  includeBodyweight?: boolean; // Учитывать ли собственный вес тела в расчете подхода
 }
 
 export interface ProgressPhotoPreview {
@@ -96,26 +107,43 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
   const [title, setTitle] = useState<string>('Тяжелый верх');
   const [wellbeingRating, setWellbeingRating] = useState<number>(8);
   const [wellbeingNotes, setWellbeingNotes] = useState<string>('');
-  const [bodyWeight, setBodyWeight] = useState<string>('');
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Профиль тела пользователя (вес, рост, таймер отдыха по умолчанию)
+  const [userProfile, setUserProfile] = useState<UserBodyProfile>(() => getUserBodyProfile());
+  const [bodyWeight, setBodyWeight] = useState<string>(() =>
+    userProfile.weightKg ? String(userProfile.weightKg) : '75'
+  );
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
+
+  // Состояние таймера отдыха между подходами
+  const [timerState, setTimerState] = useState<ActiveRestTimerState>({
+    isActive: false,
+    totalSeconds: userProfile.defaultRestSeconds || 90,
+    remainingSeconds: userProfile.defaultRestSeconds || 90,
+    isPaused: false,
+    isFinished: false,
+  });
 
   // Динамический список упражнений и подходов
   const [exercises, setExercises] = useState<ExerciseFormItem[]>([
     {
       id: 'ex-init-1',
       name: 'Жим штанги лежа',
+      includeBodyweight: false,
       sets: [
-        { id: 'set-init-1', weight: 80, reps: 8 },
-        { id: 'set-init-2', weight: 80, reps: 8 },
-        { id: 'set-init-3', weight: 80, reps: 7 },
+        { id: 'set-init-1', weight: 80, reps: 8, completed: false },
+        { id: 'set-init-2', weight: 80, reps: 8, completed: false },
+        { id: 'set-init-3', weight: 80, reps: 7, completed: false },
       ],
     },
     {
       id: 'ex-init-2',
-      name: 'Французский жим',
+      name: 'Подтягивания широким хватом',
+      includeBodyweight: true,
       sets: [
-        { id: 'set-init-4', weight: 32, reps: 10 },
-        { id: 'set-init-5', weight: 32, reps: 10 },
+        { id: 'set-init-4', weight: 0, reps: 10, completed: false },
+        { id: 'set-init-5', weight: 0, reps: 9, completed: false },
       ],
     },
   ]);
@@ -130,25 +158,48 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
     // Устанавливаем сегодняшнюю дату по умолчанию
     const today = new Intl.DateTimeFormat('en-CA').format(new Date());
     setWorkoutDate(today);
+
+    // Загружаем сохраненный профиль
+    const loadedProfile = getUserBodyProfile();
+    setUserProfile(loadedProfile);
+    if (loadedProfile.weightKg) {
+      setBodyWeight(String(loadedProfile.weightKg));
+    }
   }, []);
 
-  // Расчет суммарной статистики и тоннажа
+  // Числовой вес тела для расчетов
+  const currentBodyWeightNum = useMemo(() => {
+    const parsed = parseFloat(bodyWeight);
+    if (!isNaN(parsed) && parsed > 0) return parsed;
+    return userProfile.weightKg || 75;
+  }, [bodyWeight, userProfile.weightKg]);
+
+  // Расчет суммарной статистики и тоннажа с учетом веса тела
   const stats = useMemo(() => {
     let totalTonnage = 0;
     let totalSets = 0;
     let totalReps = 0;
+    let completedSetsCount = 0;
     const perExerciseTonnage: Record<string, number> = {};
 
     exercises.forEach((ex) => {
       let exTonnage = 0;
+      const baseBodyweight = ex.includeBodyweight ? currentBodyWeightNum : 0;
+
       ex.sets.forEach((set) => {
-        const weight = Number(set.weight) || 0;
+        const addedWeight = Number(set.weight) || 0;
+        const effectiveWeight = baseBodyweight + addedWeight;
         const reps = Number(set.reps) || 0;
-        const setTonnage = weight * reps;
+        const setTonnage = effectiveWeight * reps;
+
         exTonnage += setTonnage;
         totalSets += 1;
         totalReps += reps;
+        if (set.completed) {
+          completedSetsCount += 1;
+        }
       });
+
       perExerciseTonnage[ex.id] = Math.round(exTonnage * 10) / 10;
       totalTonnage += exTonnage;
     });
@@ -157,9 +208,10 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
       totalTonnage: Math.round(totalTonnage * 10) / 10,
       totalSets,
       totalReps,
+      completedSetsCount,
       perExerciseTonnage,
     };
-  }, [exercises]);
+  }, [exercises, currentBodyWeightNum]);
 
   // Генерация точек для спарклайн-графика интенсивности тоннажа
   const sparklinePoints = useMemo(() => {
@@ -180,16 +232,75 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
     return points.join(' ');
   }, [exercises, stats.perExerciseTonnage]);
 
-  // Добавление нового упражнения
+  // Запуск таймера отдыха
+  const startRestTimer = (exerciseName?: string, setIndex?: number) => {
+    const duration = userProfile.defaultRestSeconds || 90;
+    setTimerState({
+      isActive: true,
+      totalSeconds: duration,
+      remainingSeconds: duration,
+      exerciseName: exerciseName || 'Упражнение',
+      setIndex,
+      isPaused: false,
+      isFinished: false,
+    });
+  };
+
+  // Отметка подхода как выполненного + автоматический запуск таймера отдыха
+  const toggleSetCompleted = (
+    exerciseId: string,
+    setId: string,
+    exerciseName: string,
+    setIndex: number
+  ) => {
+    hapticImpact('heavy');
+    setExercises((prev) =>
+      prev.map((ex) => {
+        if (ex.id !== exerciseId) return ex;
+        return {
+          ...ex,
+          sets: ex.sets.map((s) => {
+            if (s.id !== setId) return s;
+            const willBeCompleted = !s.completed;
+            if (willBeCompleted) {
+              startRestTimer(exerciseName || ex.name, setIndex);
+            }
+            return { ...s, completed: willBeCompleted };
+          }),
+        };
+      })
+    );
+  };
+
+  // Переключение учета собственного веса для упражнения
+  const toggleExerciseBodyweight = (exerciseId: string) => {
+    hapticImpact('light');
+    setExercises((prev) =>
+      prev.map((ex) =>
+        ex.id === exerciseId ? { ...ex, includeBodyweight: !ex.includeBodyweight } : ex
+      )
+    );
+  };
+
+  // Добавление нового упражнения (опускает кнопку вниз)
   const addExercise = () => {
     hapticImpact('medium');
     const newExId = createId();
+    const shouldDefaultBodyweight = workoutType === 'calisthenics';
     setExercises((prev) => [
       ...prev,
       {
         id: newExId,
         name: '',
-        sets: [{ id: createId(), weight: 60, reps: 8 }],
+        includeBodyweight: shouldDefaultBodyweight,
+        sets: [
+          {
+            id: createId(),
+            weight: shouldDefaultBodyweight ? 0 : 60,
+            reps: 8,
+            completed: false,
+          },
+        ],
       },
     ]);
   };
@@ -213,8 +324,9 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
         const lastSet = ex.sets[ex.sets.length - 1];
         const newSet: ExerciseSetItem = {
           id: createId(),
-          weight: lastSet ? lastSet.weight : 0,
+          weight: lastSet ? lastSet.weight : ex.includeBodyweight ? 0 : 50,
           reps: lastSet ? lastSet.reps : 8,
+          completed: false,
         };
         return { ...ex, sets: [...ex.sets, newSet] };
       })
@@ -283,6 +395,15 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
     );
   };
 
+  const handleProfileSaved = (updated: UserBodyProfile) => {
+    setUserProfile(updated);
+    setBodyWeight(String(updated.weightKg));
+    setTimerState((prev) => ({
+      ...prev,
+      totalSeconds: updated.defaultRestSeconds,
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     hapticImpact('medium');
@@ -296,27 +417,35 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
         title: title.trim() || WORKOUT_TYPE_LABELS[workoutType],
         wellbeingRating,
         wellbeingNotes: wellbeingNotes.trim(),
-        bodyWeight: bodyWeight ? Number(bodyWeight) : null,
+        bodyWeight: currentBodyWeightNum,
         totalTonnage: stats.totalTonnage,
         exercises: exercises
           .filter((ex) => ex.name.trim().length > 0 && ex.sets.length > 0)
           .map((ex) => {
             const setsCount = ex.sets.length;
-            const maxWeight = Math.max(...ex.sets.map((s) => s.weight), 0);
+            const baseBodyweight = ex.includeBodyweight ? currentBodyWeightNum : 0;
+            const maxWeight = Math.max(
+              ...ex.sets.map((s) => baseBodyweight + (Number(s.weight) || 0)),
+              0
+            );
             const avgReps = Math.max(
               1,
               Math.round(ex.sets.reduce((acc, s) => acc + s.reps, 0) / setsCount)
             );
 
+            const displayName = ex.includeBodyweight
+              ? `${ex.name.trim()} (свой вес ${currentBodyWeightNum} кг)`
+              : ex.name.trim();
+
             return {
-              exerciseName: ex.name.trim(),
+              exerciseName: displayName,
               setsCount,
               repsCount: avgReps,
               workingWeight: maxWeight,
               exerciseTonnage: stats.perExerciseTonnage[ex.id] ?? 0,
               setsDetail: ex.sets.map((s, idx) => ({
                 set: idx + 1,
-                weight: s.weight,
+                weight: baseBodyweight + (Number(s.weight) || 0),
                 reps: s.reps,
               })),
             };
@@ -360,7 +489,8 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
 
             const combinedNotes = [
               payload.wellbeingNotes,
-              payload.bodyWeight ? `Вес тела: ${payload.bodyWeight} кг` : '',
+              `Вес тела: ${payload.bodyWeight} кг`,
+              `Рост: ${userProfile.heightCm} см`,
               `Самочувствие: ${payload.wellbeingRating}/10`,
             ]
               .filter(Boolean)
@@ -424,7 +554,7 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
               ...curWorkouts.filter((w) => w.id !== cachedItem.id),
             ]);
 
-            // Отправляем структурированный отчет в Telegram-бот с прикрепленными фото
+            // Отправляем структурированный отчет в Telegram-бот
             void fetch('/api/telegram/notify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -435,6 +565,8 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                   title: payload.title,
                   workoutDate: payload.workoutDate,
                   totalTonnage: stats.totalTonnage,
+                  bodyWeight: payload.bodyWeight,
+                  heightCm: userProfile.heightCm,
                   wellbeingRating: payload.wellbeingRating,
                   wellbeingNotes: payload.wellbeingNotes,
                   exercises: payload.exercises,
@@ -443,10 +575,11 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
               }),
             }).catch(() => null);
           } else {
-            // Пользователь оффлайн или сессия не подгрузилась: сохраняем в локальный кэш
+            // Оффлайн режим
             const combinedNotes = [
               payload.wellbeingNotes,
-              payload.bodyWeight ? `Вес тела: ${payload.bodyWeight} кг` : '',
+              `Вес тела: ${payload.bodyWeight} кг`,
+              `Рост: ${userProfile.heightCm} см`,
               `Самочувствие: ${payload.wellbeingRating}/10`,
             ]
               .filter(Boolean)
@@ -477,7 +610,6 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
               ...curWorkouts.filter((w) => w.id !== localItem.id),
             ]);
 
-            // Отправляем в Telegram-бот
             void fetch('/api/telegram/notify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -487,6 +619,8 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                   title: payload.title,
                   workoutDate: payload.workoutDate,
                   totalTonnage: stats.totalTonnage,
+                  bodyWeight: payload.bodyWeight,
+                  heightCm: userProfile.heightCm,
                   wellbeingRating: payload.wellbeingRating,
                   wellbeingNotes: payload.wellbeingNotes,
                   exercises: payload.exercises,
@@ -515,10 +649,9 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 pb-20">
       {/* 1. ШАПКА: SUMMARY-БЛОК В СТИЛЕ FITFUSION DARK LUXURY */}
       <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-br from-[#26211F] via-[#201C1A] to-[#141211] p-5 shadow-2xl shadow-black/60">
-        {/* Декоративный теплый фоновый блик */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-16 -right-16 h-44 w-44 rounded-full bg-[#F5BA42]/10 blur-3xl"
@@ -547,16 +680,10 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
             </p>
           </div>
 
-          {/* Мини-график интенсивности (Sparkline) цвета #F5BA42 */}
+          {/* Мини-график интенсивности */}
           <div className="flex flex-col items-end gap-1">
             <div className="flex h-10 w-28 items-center justify-end">
               <svg className="h-8 w-28 overflow-visible" viewBox="0 0 120 32">
-                <defs>
-                  <linearGradient id="goldGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#F5BA42" stopOpacity="0.4" />
-                    <stop offset="100%" stopColor="#F5BA42" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
                 <polyline
                   fill="none"
                   stroke="#F5BA42"
@@ -589,18 +716,52 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
               Подходов
             </span>
             <span className="font-mono text-base font-bold text-[#FAF7F5] tabular-nums">
-              {stats.totalSets}
+              {stats.completedSetsCount} / {stats.totalSets}
             </span>
           </div>
           <div className="rounded-2xl border border-white/5 bg-[#141211]/60 px-2.5 py-2">
             <span className="block text-[10px] font-bold text-[#A8A199] uppercase">
-              Фото формы
+              Свой вес
             </span>
             <span className="font-mono text-base font-bold text-[#F5BA42] tabular-nums">
-              {photos.length}
+              {currentBodyWeightNum} кг
             </span>
           </div>
         </div>
+      </div>
+
+      {/* ПАНЕЛЬ ПАРАМЕТРОВ ТЕЛА И АККАУНТА (РОСТ, ВЕС, ТАЙМЕР ОТДЫХА) */}
+      <div className="flex items-center justify-between rounded-3xl border border-white/5 bg-gradient-to-r from-[#24201E] to-[#1E1A18] px-4 py-3 shadow-lg shadow-black/40">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#F5BA42]/15 text-[#F5BA42] ring-1 ring-[#F5BA42]/25">
+            <Scale className="h-4 w-4" />
+          </span>
+          <div className="text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-[#A8A199] uppercase">Профиль тела:</span>
+              <span className="font-mono font-bold text-[#FAF7F5] tabular-nums">
+                {currentBodyWeightNum} кг · {userProfile.heightCm} см
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 text-[10px] text-[#A8A199]">
+              <Timer className="h-3 w-3 text-[#F5BA42]" />
+              <span>Таймер отдыха:</span>
+              <span className="font-mono font-bold text-[#F5BA42]">{userProfile.defaultRestSeconds} сек</span>
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            hapticImpact('light');
+            setIsProfileModalOpen(true);
+          }}
+          className="inline-flex items-center gap-1.5 rounded-2xl border border-white/10 bg-[#141211] px-3 py-1.5 text-xs font-bold text-[#F5BA42] transition hover:bg-[#F5BA42]/10 active:scale-95"
+        >
+          <Sliders className="h-3.5 w-3.5" />
+          <span>Изменить</span>
+        </button>
       </div>
 
       {/* 2. ПАРАМЕТРЫ ТРЕНИРОВКИ */}
@@ -669,12 +830,14 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
 
         {exercises.map((exercise, exIndex) => {
           const exTonnage = stats.perExerciseTonnage[exercise.id] ?? 0;
+          const baseWeight = exercise.includeBodyweight ? currentBodyWeightNum : 0;
 
           return (
             <div
               key={exercise.id}
               className="rounded-3xl border border-white/5 bg-gradient-to-b from-[#26211F] to-[#1D1918] p-4.5 shadow-xl shadow-black/40"
             >
+              {/* Шапка упражнения */}
               <div className="flex items-center gap-2.5">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-[#F5BA42]/15 font-mono text-xs font-black text-[#F5BA42] ring-1 ring-[#F5BA42]/25">
                   {exIndex + 1}
@@ -682,7 +845,7 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                 <input
                   type="text"
                   required
-                  placeholder="Название (Жим, Присед, Тяга...)"
+                  placeholder="Название (Жим, Подтягивания, Брусья...)"
                   value={exercise.name}
                   onChange={(e) => updateExerciseName(exercise.id, e.target.value)}
                   className="w-full rounded-2xl border border-white/10 bg-[#141211] px-3.5 py-2 text-sm font-bold text-[#FAF7F5] placeholder:text-[#A8A199]/40 focus:border-[#F5BA42] focus:outline-none"
@@ -699,10 +862,40 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                 )}
               </div>
 
+              {/* Переключатель: Учитывать свой вес тела в подходах */}
+              <div className="mt-3 flex items-center justify-between rounded-2xl border border-white/5 bg-[#141211]/80 px-3 py-2">
+                <button
+                  type="button"
+                  onClick={() => toggleExerciseBodyweight(exercise.id)}
+                  className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-[11px] font-bold transition active:scale-95 ${
+                    exercise.includeBodyweight
+                      ? 'bg-[#F5BA42] text-stone-950 shadow-md shadow-[#F5BA42]/20'
+                      : 'border border-white/10 bg-[#1E1A18] text-[#A8A199] hover:text-[#FAF7F5]'
+                  }`}
+                >
+                  <Scale className="h-3.5 w-3.5" />
+                  <span>
+                    {exercise.includeBodyweight
+                      ? `Свой вес включен (+${currentBodyWeightNum} кг)`
+                      : 'Считать свой вес'}
+                  </span>
+                </button>
+
+                <div className="text-right">
+                  <span className="font-mono text-[10px] text-[#A8A199]">
+                    {exercise.includeBodyweight
+                      ? `База: ${currentBodyWeightNum} кг + отягощение`
+                      : 'Вес снаряда'}
+                  </span>
+                </div>
+              </div>
+
               {/* Заголовки таблицы подходов */}
               <div className="mt-3.5 grid grid-cols-12 items-center gap-2 px-1 text-[10px] font-bold tracking-wider text-[#A8A199] uppercase">
-                <span className="col-span-2">Сет</span>
-                <span className="col-span-4 text-center">Вес (кг)</span>
+                <span className="col-span-2 text-center">Сет</span>
+                <span className="col-span-4 text-center">
+                  {exercise.includeBodyweight ? '+Доп. вес' : 'Вес (кг)'}
+                </span>
                 <span className="col-span-3 text-center">Повторы</span>
                 <span className="col-span-2 text-right">Тоннаж</span>
                 <span className="col-span-1" />
@@ -711,35 +904,73 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
               {/* Строки подходов в темных плашках */}
               <div className="mt-2 space-y-2">
                 {exercise.sets.map((setItem, setIdx) => {
+                  const addedWeight = Number(setItem.weight) || 0;
+                  const effectiveWeight = baseWeight + addedWeight;
                   const setVolume =
-                    Math.round(setItem.weight * setItem.reps * 10) / 10;
+                    Math.round(effectiveWeight * setItem.reps * 10) / 10;
 
                   return (
                     <div
                       key={setItem.id}
-                      className="grid grid-cols-12 items-center gap-2 rounded-2xl border border-white/5 bg-[#141211] p-1.5"
+                      className={`grid grid-cols-12 items-center gap-2 rounded-2xl border p-1.5 transition-all ${
+                        setItem.completed
+                          ? 'border-[#F5BA42]/40 bg-[#141211] ring-1 ring-[#F5BA42]/20'
+                          : 'border-white/5 bg-[#141211]'
+                      }`}
                     >
+                      {/* Кнопка отметки подхода (запускает таймер отдыха) */}
                       <div className="col-span-2 flex justify-center">
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[#24201E] font-mono text-xs font-bold text-[#A8A199]">
-                          #{setIdx + 1}
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            toggleSetCompleted(
+                              exercise.id,
+                              setItem.id,
+                              exercise.name,
+                              setIdx
+                            )
+                          }
+                          title={
+                            setItem.completed
+                              ? 'Подход завершен. Нажмите, чтобы снять отметку'
+                              : 'Нажмите, чтобы отметить выполнение и включить таймер отдыха'
+                          }
+                          className={`inline-flex h-8 w-full items-center justify-center gap-1 rounded-xl font-mono text-xs font-bold transition active:scale-95 ${
+                            setItem.completed
+                              ? 'bg-[#F5BA42] text-stone-950 shadow-md shadow-[#F5BA42]/20'
+                              : 'bg-[#24201E] text-[#A8A199] hover:bg-[#F5BA42]/20 hover:text-[#F5BA42]'
+                          }`}
+                        >
+                          {setItem.completed ? (
+                            <Check className="h-3.5 w-3.5 stroke-[3]" />
+                          ) : (
+                            <span>#{setIdx + 1}</span>
+                          )}
+                        </button>
                       </div>
 
+                      {/* Инпут веса */}
                       <div className="col-span-4">
                         <input
                           type="number"
                           inputMode="decimal"
                           min={0}
                           step="0.5"
-                          value={setItem.weight || ''}
-                          placeholder="0"
+                          value={setItem.weight === 0 && exercise.includeBodyweight ? '0' : setItem.weight || ''}
+                          placeholder={exercise.includeBodyweight ? '+0' : '0'}
                           onChange={(e) =>
                             updateSet(exercise.id, setItem.id, 'weight', e.target.value)
                           }
                           className="w-full rounded-xl border border-white/5 bg-[#1E1A18] px-2 py-2 text-center font-mono text-base font-bold text-[#FAF7F5] tabular-nums focus:border-[#F5BA42] focus:outline-none"
                         />
+                        {exercise.includeBodyweight && (
+                          <span className="block text-center font-mono text-[9px] text-[#A8A199]">
+                            итог: {effectiveWeight} кг
+                          </span>
+                        )}
                       </div>
 
+                      {/* Инпут повторений */}
                       <div className="col-span-3">
                         <input
                           type="number"
@@ -755,10 +986,12 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                         />
                       </div>
 
+                      {/* Тоннаж подхода */}
                       <div className="col-span-2 text-right font-mono text-xs font-bold text-[#F5BA42] tabular-nums">
                         {setVolume}
                       </div>
 
+                      {/* Удаление сета */}
                       <div className="col-span-1 flex justify-center">
                         <button
                           type="button"
@@ -775,16 +1008,29 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                 })}
               </div>
 
-              {/* Подвал карточки упражнения: кнопка добавления сета и тоннаж */}
+              {/* Подвал карточки: кнопка добавления сета, ручной запуск таймера и тоннаж */}
               <div className="mt-3.5 flex items-center justify-between border-t border-white/5 pt-3">
-                <button
-                  type="button"
-                  onClick={() => addSet(exercise.id)}
-                  className="inline-flex items-center gap-1.5 rounded-2xl border border-white/5 bg-[#24201E] px-3.5 py-1.5 text-xs font-bold text-[#FAF7F5] transition hover:bg-white/10 active:scale-95"
-                >
-                  <Copy className="h-3.5 w-3.5 text-[#F5BA42]" />
-                  + Подход
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => addSet(exercise.id)}
+                    className="inline-flex items-center gap-1.5 rounded-2xl border border-white/5 bg-[#24201E] px-3 py-1.5 text-xs font-bold text-[#FAF7F5] transition hover:bg-white/10 active:scale-95"
+                  >
+                    <Copy className="h-3.5 w-3.5 text-[#F5BA42]" />
+                    + Сет
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      startRestTimer(exercise.name, exercise.sets.length - 1)
+                    }
+                    className="inline-flex items-center gap-1.5 rounded-2xl border border-white/5 bg-[#141211] px-3 py-1.5 text-xs font-bold text-[#F5BA42] transition hover:bg-[#F5BA42]/15 active:scale-95"
+                  >
+                    <Timer className="h-3.5 w-3.5" />
+                    Отдых ({userProfile.defaultRestSeconds}с)
+                  </button>
+                </div>
 
                 <div className="text-right">
                   <span className="text-[11px] font-semibold text-[#A8A199]">Тоннаж: </span>
@@ -847,7 +1093,6 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
           className="hidden"
         />
 
-        {/* Кнопка съемки / выбора фото в стиле Luxury Studio */}
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -864,7 +1109,6 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
           </span>
         </button>
 
-        {/* Сетка фото прогресса в стиле Polaroid с размытым фоном */}
         {photos.length > 0 && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {photos.map((photo) => (
@@ -956,6 +1200,23 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
       >
         {isSubmitting ? 'Сохранение в облако...' : 'Сохранить тренировку'}
       </button>
+
+      {/* ПЛАВАЮЩИЙ ТАЙМЕР ОТДЫХА МЕЖДУ ПОДХОДАМИ */}
+      <RestTimerBar
+        timerState={timerState}
+        onUpdateState={setTimerState}
+        onStop={() =>
+          setTimerState((prev) => ({ ...prev, isActive: false, isFinished: false }))
+        }
+      />
+
+      {/* МОДАЛЬНОЕ ОКНО ПАРАМЕТРОВ ТЕЛА И АККАУНТА */}
+      <BodyProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        currentProfile={userProfile}
+        onSaved={handleProfileSaved}
+      />
     </form>
   );
 }

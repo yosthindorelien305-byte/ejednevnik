@@ -242,6 +242,11 @@ export async function POST(request: Request): Promise<Response> {
         `🔥 <b>Общий тоннаж:</b> ${Number(totalTonnage).toLocaleString('ru-RU')} кг`,
       ];
 
+      if (data.bodyWeight) {
+        const heightPart = data.heightCm ? ` · Рост: ${data.heightCm} см` : '';
+        lines.push(`⚖️ <b>Параметры тела:</b> ${data.bodyWeight} кг${heightPart}`);
+      }
+
       if (wellbeingRating) {
         lines.push(`❤️ <b>Самочувствие:</b> ${wellbeingRating} / 10`);
       }
