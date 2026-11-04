@@ -59,6 +59,11 @@ CREATE TABLE public.profiles (
     daily_fats_goal NUMERIC(6, 1) NOT NULL DEFAULT 70.0 CHECK (daily_fats_goal >= 0),
     daily_carbs_goal NUMERIC(6, 1) NOT NULL DEFAULT 240.0 CHECK (daily_carbs_goal >= 0),
 
+    -- Параметры тела и тренировок
+    body_weight NUMERIC(5, 2) DEFAULT 75.0 CHECK (body_weight IS NULL OR body_weight > 0),
+    body_height NUMERIC(5, 1) DEFAULT 178.0 CHECK (body_height IS NULL OR body_height > 0),
+    default_rest_seconds INTEGER DEFAULT 90 CHECK (default_rest_seconds IS NULL OR default_rest_seconds >= 10),
+
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

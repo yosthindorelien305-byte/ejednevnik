@@ -27,6 +27,7 @@ import {
 } from './WorkoutHistory';
 import {
   getUserBodyProfile,
+  fetchUserBodyProfileAsync,
   type UserBodyProfile,
 } from '../lib/bodyProfile';
 import { BodyProfileModal } from './BodyProfileModal';
@@ -159,12 +160,25 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
     const today = new Intl.DateTimeFormat('en-CA').format(new Date());
     setWorkoutDate(today);
 
-    // Загружаем сохраненный профиль
+    // 1. Мгновенно подставляем кэш
     const loadedProfile = getUserBodyProfile();
     setUserProfile(loadedProfile);
     if (loadedProfile.weightKg) {
       setBodyWeight(String(loadedProfile.weightKg));
     }
+
+    // 2. Асинхронно запрашиваем актуальный профиль из базы данных Supabase
+    void fetchUserBodyProfileAsync().then((remote) => {
+      if (remote && remote.weightKg) {
+        setUserProfile(remote);
+        setBodyWeight(String(remote.weightKg));
+        setTimerState((prev) => ({
+          ...prev,
+          totalSeconds: remote.defaultRestSeconds,
+          remainingSeconds: remote.defaultRestSeconds,
+        }));
+      }
+    });
   }, []);
 
   // Числовой вес тела для расчетов
