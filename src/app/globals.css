@@ -2,28 +2,31 @@
 
 @layer base {
   :root {
-    --bg-app: #141211;
-    --bg-card: #24201E;
-    --bg-card-from: #26211F;
-    --bg-card-to: #1D1918;
-    --accent-gold: #F5BA42;
-    --accent-wine: #5B1626;
-    --accent-wine-dark: #4A1521;
-    --text-primary: #FAF7F5;
-    --text-muted: #A8A199;
+    --bg-app: #0B0B0E;
+    --bg-card: #16161C;
+    --bg-card-from: #1C1C24;
+    --bg-card-to: #121217;
+    --accent-lime: #C4F124;
+    --accent-lime-hover: #b5df1d;
+    --accent-orange: #FF6D3B;
+    --accent-purple: #8A4FFF;
+    --accent-cyan: #00D2FF;
+    --accent-emerald: #22C55E;
+    --text-primary: #FFFFFF;
+    --text-muted: #8F90A6;
   }
 
   html {
     /* Отключаем синюю вспышку при тапе в iOS Safari и автоувеличение шрифтов */
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
-    background-color: #141211;
-    color: #FAF7F5;
+    background-color: #0B0B0E;
+    color: #FFFFFF;
   }
 
   body {
-    background-color: #141211;
-    color: #FAF7F5;
+    background-color: #0B0B0E;
+    color: #FFFFFF;
     user-select: none;
     -webkit-user-select: none;
     /* Предотвращаем резиновый отскок всего окна в режиме Standalone */
@@ -48,20 +51,20 @@
     }
   }
 
-  /* Стилизация скроллбара под эстетику темного графита */
+  /* Стилизация скроллбара под эстетику темного графита и неонового лайма */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
   ::-webkit-scrollbar-track {
-    background: #141211;
+    background: #0B0B0E;
   }
   ::-webkit-scrollbar-thumb {
-    background: #2E2825;
+    background: #24242F;
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #F5BA42;
+    background: #C4F124;
   }
 }
 

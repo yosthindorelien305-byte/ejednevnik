@@ -8,7 +8,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: '#141211',
+  themeColor: '#0B0B0E',
 };
 
 // Метатеги для нативного запуска PWA с экрана «Домой» на iPhone (Standalone режим)
@@ -52,8 +52,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ru" className="bg-[#141211] text-[#FAF7F5]">
-      <body className="min-h-dvh bg-[#141211] text-[#FAF7F5] antialiased selection:bg-[#F5BA42]/30 selection:text-[#FAF7F5]">
+    <html lang="ru" className="bg-[#0B0B0E] text-[#FFFFFF]">
+      <body className="min-h-dvh bg-[#0B0B0E] text-[#FFFFFF] antialiased selection:bg-[#C4F124] selection:text-black">
         <TelegramInit />
         {children}
       </body>

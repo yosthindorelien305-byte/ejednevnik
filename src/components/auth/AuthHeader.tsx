@@ -124,16 +124,16 @@ export function AuthHeader() {
   return (
     <div className="mb-4">
       {userEmail ? (
-        // Авторизованный профиль: Темный графит с золотыми акцентами
-        <div className="flex items-center justify-between gap-2.5 rounded-3xl border border-white/5 bg-gradient-to-r from-[#26211F] to-[#1D1918] p-3 shadow-xl shadow-black/40">
+        // Авторизованный профиль: Темный графит с лаймовыми акцентами
+        <div className="flex items-center justify-between gap-2.5 rounded-3xl border border-white/5 bg-gradient-to-r from-[#181820] to-[#14141A] p-3 shadow-xl shadow-black/60">
           <div className="flex min-w-0 items-center gap-2.5">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-[#F5BA42]/10 text-[#F5BA42] ring-1 ring-[#F5BA42]/20">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-[#C4F124]/10 text-[#C4F124] ring-1 ring-[#C4F124]/25">
               <User className="h-4 w-4" />
             </span>
             <div className="min-w-0">
-              <p className="truncate text-xs font-bold text-[#FAF7F5]">{userEmail}</p>
-              <p className="flex items-center gap-1 text-[10px] font-medium text-[#A8A199]">
-                <CheckCircle2 className="h-3 w-3 shrink-0 text-[#F5BA42]" />
+              <p className="truncate text-xs font-bold text-[#FFFFFF]">{userEmail}</p>
+              <p className="flex items-center gap-1 text-[10px] font-medium text-[#8F90A6]">
+                <CheckCircle2 className="h-3 w-3 shrink-0 text-[#C4F124]" />
                 {telegramId ? 'Telegram синхронизирован' : 'Облако активно'}
               </p>
             </div>
@@ -141,20 +141,20 @@ export function AuthHeader() {
           <button
             type="button"
             onClick={handleLogout}
-            className="inline-flex shrink-0 items-center gap-1 rounded-2xl border border-white/5 bg-[#24201E] px-3 py-1.5 text-[11px] font-semibold text-[#A8A199] transition hover:text-[#FAF7F5] active:scale-95"
+            className="inline-flex shrink-0 items-center gap-1 rounded-2xl border border-white/5 bg-[#1C1C24] px-3 py-1.5 text-[11px] font-semibold text-[#8F90A6] transition hover:text-[#FFFFFF] active:scale-95"
           >
             <LogOut className="h-3 w-3" />
             Выйти
           </button>
         </div>
       ) : (
-        // Неавторизованный профиль: Благородный винный акцент с золотой кнопкой
-        <div className="flex items-center justify-between gap-3 rounded-3xl border border-[#5B1626]/40 bg-gradient-to-r from-[#4A1521]/60 to-[#26211F] p-3.5 shadow-xl shadow-black/40">
+        // Неавторизованный профиль: Тёмный графит с оранжевым индикатором и лаймовой кнопкой
+        <div className="flex items-center justify-between gap-3 rounded-3xl border border-white/5 bg-gradient-to-r from-[#181820] to-[#121217] p-3.5 shadow-xl shadow-black/60">
           <div className="flex items-center gap-2.5">
-            <AlertTriangle className="h-4 w-4 shrink-0 text-[#F5BA42]" />
+            <AlertTriangle className="h-4 w-4 shrink-0 text-[#FF6D3B]" />
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-[#FAF7F5]">Демо-режим</p>
-              <p className="text-[11px] text-[#A8A199]">Войдите для сохранения в облако и Telegram</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-[#FFFFFF]">Демо-режим</p>
+              <p className="text-[11px] text-[#8F90A6]">Войдите для сохранения в облако и Telegram</p>
             </div>
           </div>
           <button
@@ -163,24 +163,24 @@ export function AuthHeader() {
               hapticImpact('medium');
               setIsModalOpen(true);
             }}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-2xl bg-[#F5BA42] px-3.5 py-2 text-xs font-bold text-stone-950 shadow-lg shadow-[#F5BA42]/20 transition active:scale-95 hover:bg-[#e5ad3a]"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-2xl bg-[#C4F124] px-3.5 py-2 text-xs font-black text-black shadow-lg shadow-[#C4F124]/20 transition active:scale-95 hover:bg-[#b2dc1e]"
           >
-            <LogIn className="h-3.5 w-3.5" />
+            <LogIn className="h-3.5 w-3.5 stroke-[2.5]" />
             Войти
           </button>
         </div>
       )}
 
-      {/* Модальное окно входа в стиле графит + золото */}
+      {/* Модальное окно входа в стиле Cyber Lime */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
-          <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-gradient-to-b from-[#26211F] to-[#1D1918] p-5 shadow-2xl shadow-black/80">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+          <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-gradient-to-b from-[#1C1C24] to-[#121217] p-5 shadow-2xl shadow-black/90">
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#F5BA42]">
-                  FitFusion Luxury
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#C4F124]">
+                  GYM DIARY PRO
                 </span>
-                <h2 className="text-lg font-black tracking-tight text-[#FAF7F5] uppercase">
+                <h2 className="text-lg font-black tracking-tight text-[#FFFFFF] uppercase">
                   Вход в аккаунт
                 </h2>
               </div>
@@ -190,19 +190,19 @@ export function AuthHeader() {
                   hapticImpact('light');
                   setIsModalOpen(false);
                 }}
-                className="flex h-8 w-8 items-center justify-center rounded-2xl bg-white/5 text-[#A8A199] transition hover:bg-white/10 hover:text-white"
+                className="flex h-8 w-8 items-center justify-center rounded-2xl bg-white/5 text-[#8F90A6] transition hover:bg-white/10 hover:text-white"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <p className="mt-2 text-xs text-[#A8A199]">
+            <p className="mt-2 text-xs text-[#8F90A6]">
               Войдите в аккаунт, чтобы сохранять подходы, книги и питание в облаке и мгновенно получать отчеты в Telegram.
             </p>
 
             <form onSubmit={handleLogin} className="mt-4 space-y-3.5">
               <div>
-                <label className="mb-1 block text-xs font-semibold tracking-wider text-[#A8A199] uppercase">
+                <label className="mb-1 block text-xs font-semibold tracking-wider text-[#8F90A6] uppercase">
                   Email
                 </label>
                 <input
@@ -211,12 +211,12 @@ export function AuthHeader() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@gmail.com"
-                  className="w-full rounded-2xl border border-white/10 bg-[#141211] px-3.5 py-2.5 text-sm text-[#FAF7F5] placeholder:text-[#A8A199]/40 focus:border-[#F5BA42] focus:outline-none"
+                  className="w-full rounded-2xl border border-white/10 bg-[#0B0B0E] px-3.5 py-2.5 text-sm text-[#FFFFFF] placeholder:text-[#8F90A6]/40 focus:border-[#C4F124] focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-semibold tracking-wider text-[#A8A199] uppercase">
+                <label className="mb-1 block text-xs font-semibold tracking-wider text-[#8F90A6] uppercase">
                   Пароль
                 </label>
                 <input
@@ -225,12 +225,12 @@ export function AuthHeader() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Ваш пароль"
-                  className="w-full rounded-2xl border border-white/10 bg-[#141211] px-3.5 py-2.5 text-sm text-[#FAF7F5] placeholder:text-[#A8A199]/40 focus:border-[#F5BA42] focus:outline-none"
+                  className="w-full rounded-2xl border border-white/10 bg-[#0B0B0E] px-3.5 py-2.5 text-sm text-[#FFFFFF] placeholder:text-[#8F90A6]/40 focus:border-[#C4F124] focus:outline-none"
                 />
               </div>
 
               {authError && (
-                <div className="rounded-2xl border border-[#5B1626] bg-[#4A1521]/60 p-3 text-xs font-medium text-rose-300">
+                <div className="rounded-2xl border border-rose-900/40 bg-rose-950/20 p-3 text-xs text-rose-300">
                   {authError}
                 </div>
               )}
@@ -238,15 +238,15 @@ export function AuthHeader() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#F5BA42] py-3 text-sm font-bold text-stone-950 shadow-lg shadow-[#F5BA42]/20 transition hover:bg-[#e5ad3a] active:scale-95 disabled:opacity-60"
+                className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#C4F124] py-3 text-sm font-black text-black uppercase shadow-lg shadow-[#C4F124]/20 transition hover:bg-[#b2dc1e] active:scale-95 disabled:opacity-60"
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Проверка...
+                    <Loader2 className="h-4 w-4 animate-spin text-black" />
+                    <span>Проверка...</span>
                   </>
                 ) : (
-                  'Войти в Ежедневник'
+                  <span>Войти в Ежедневник</span>
                 )}
               </button>
             </form>

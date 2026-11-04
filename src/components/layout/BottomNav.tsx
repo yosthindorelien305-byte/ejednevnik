@@ -63,9 +63,9 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Нижняя панель вкладок"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-white/5 bg-[#1A1615]/85 pb-safe backdrop-blur-2xl shadow-2xl shadow-black/80"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-white/5 bg-[#0B0B0E]/90 pb-safe backdrop-blur-2xl shadow-2xl shadow-black/90"
     >
-      <ul className="mx-auto grid h-[56px] max-w-lg grid-cols-5 items-center px-1">
+      <ul className="mx-auto grid h-[58px] max-w-lg grid-cols-5 items-center px-1">
         {IOS_TABS.map((tab) => {
           const Icon = tab.icon;
           const active = isTabActive(tab.href);
@@ -79,27 +79,27 @@ export function BottomNav() {
                 aria-current={active ? 'page' : undefined}
                 className={`group relative flex h-full flex-col items-center justify-center gap-1 transition-all duration-150 active:scale-95 ${
                   active
-                    ? 'text-[#F5BA42]'
-                    : 'text-[#A8A199]/60 hover:text-[#FAF7F5]'
+                    ? 'text-[#C4F124]'
+                    : 'text-[#8F90A6]/60 hover:text-[#FFFFFF]'
                 }`}
               >
-                {/* Золотой микро-индикатор активной вкладки сверху */}
+                {/* Неоново-лаймовый микро-индикатор активной вкладки сверху */}
                 {active && (
-                  <span className="absolute top-0 h-0.5 w-7 rounded-full bg-[#F5BA42] shadow-[0_0_8px_#F5BA42]" />
+                  <span className="absolute top-0 h-0.5 w-7 rounded-full bg-[#C4F124] shadow-[0_0_12px_#C4F124]" />
                 )}
 
                 <div className="relative">
                   <Icon
                     className={`h-[21px] w-[21px] shrink-0 transition-transform duration-200 ${
-                      active ? 'scale-110 drop-shadow-[0_2px_8px_rgba(245,186,66,0.35)]' : 'group-hover:scale-105'
+                      active ? 'scale-110 drop-shadow-[0_2px_10px_rgba(196,241,36,0.45)] text-[#C4F124]' : 'group-hover:scale-105'
                     }`}
-                    strokeWidth={active ? 2.4 : 1.8}
+                    strokeWidth={active ? 2.5 : 1.8}
                   />
                 </div>
 
                 <span
                   className={`max-w-full truncate px-0.5 text-[10px] leading-none tracking-tight ${
-                    active ? 'font-bold text-[#FAF7F5]' : 'font-medium'
+                    active ? 'font-bold text-[#FFFFFF]' : 'font-medium'
                   }`}
                 >
                   {tab.shortLabel}
