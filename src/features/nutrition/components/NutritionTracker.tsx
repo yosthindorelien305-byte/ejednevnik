@@ -10,6 +10,12 @@ import {
   Flame,
   Info,
   ExternalLink,
+  ChevronLeft,
+  ChevronRight,
+  Coffee,
+  Sun,
+  Moon,
+  Apple,
 } from 'lucide-react';
 import {
   DEFAULT_FOOD_CATALOG,
@@ -56,11 +62,18 @@ const MEAL_TYPE_LABELS: Record<MealType, string> = {
   snack: 'Перекус',
 };
 
+const MEAL_ICONS: Record<MealType, React.ReactNode> = {
+  breakfast: <Coffee className="h-4 w-4 text-[#FF6D3B]" />,
+  lunch: <Sun className="h-4 w-4 text-[#C4F124]" />,
+  dinner: <Moon className="h-4 w-4 text-[#8A4FFF]" />,
+  snack: <Apple className="h-4 w-4 text-[#22C55E]" />,
+};
+
 const DEFAULT_GOALS: DailyNutritionGoals = {
-  calories: 2200,
-  protein: 150,
-  fats: 70,
-  carbs: 240,
+  calories: 2400,
+  protein: 160,
+  fats: 80,
+  carbs: 250,
 };
 
 export function NutritionTracker({
@@ -69,22 +82,33 @@ export function NutritionTracker({
     {
       id: 'seed-breakfast',
       mealType: 'breakfast',
-      title: 'Овсяные хлопья 70г, Яйца куриные 120г, Банан 100г',
-      macros: { calories: 533.6, protein: 24.7, fats: 19.1, carbs: 72.2 },
+      title: 'Овсяная каша с ягодами и яйца',
+      macros: { calories: 450, protein: 28, fats: 14, carbs: 54 },
+    },
+    {
+      id: 'seed-lunch',
+      mealType: 'lunch',
+      title: 'Куриное филе на гриле со свежим салатом',
+      macros: { calories: 650, protein: 55, fats: 18, carbs: 62 },
+    },
+    {
+      id: 'seed-dinner',
+      mealType: 'dinner',
+      title: 'Лосось на пару с киноа и брокколи',
+      macros: { calories: 750, protein: 48, fats: 26, carbs: 68 },
     },
   ],
   onSaveMeal,
 }: NutritionTrackerProps) {
   const [mealType, setMealType] = useState<MealType>('lunch');
   const [recipeUrl, setRecipeUrl] = useState<string>('');
+  const [isFormOpen, setIsFormOpen] = useState<boolean>(false);
   const [quickInput, setQuickInput] = useState<string>(
     'Куриная грудка 200г, гречка отварная 180г, авокадо 50г'
   );
 
   // Список продуктов текущего редактируемого приема пищи
-  const [items, setItems] = useState<ParsedMealItem[]>(() =>
-    parseMealDescription('Куриная грудка 200г, гречка отварная 180г, авокадо 50г')
-  );
+  const [items, setItems] = useState<ParsedMealItem[]>([]);
 
   // Уже записанные за сегодня приемы пищи
   const [loggedMeals, setLoggedMeals] =
@@ -155,7 +179,14 @@ export function NutritionTracker({
     };
   }, [loggedDayTotals, currentMealTotals]);
 
-  // Обработка быстрого текстового ввода («курица 200г, рис 150г, огурец 100г»)
+  // Расчет кругового кольца калорий (Pinterest Circular Meter)
+  const caloriePercent = Math.min(
+    100,
+    Math.round((projectedTotals.calories / (dailyGoals.calories || 2400)) * 100)
+  );
+  const strokeDashoffset = 283 - (283 * Math.min(100, caloriePercent)) / 100;
+
+  // Обработка быстрого текстового ввода
   const handleParseText = () => {
     hapticImpact('medium');
     const parsed = parseMealDescription(quickInput);
@@ -185,7 +216,6 @@ export function NutritionTracker({
     ]);
   };
 
-  // Обновление граммовки или нутриентов конкретного продукта в списке
   const updateItemField = (
     id: string,
     field: keyof Pick<
@@ -219,6 +249,21 @@ export function NutritionTracker({
   const removeItem = (id: string) => {
     hapticImpact('light');
     setItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  // Удаление приема пищи из истории
+  const handleDeleteMeal = (mealId: string) => {
+    hapticImpact('medium');
+    setLoggedMeals((prev) => {
+      const next = prev.filter((m) => m.id !== mealId);
+      try {
+        const today = new Intl.DateTimeFormat('en-CA').format(new Date());
+        localStorage.setItem(`ejednevnik_nutrition_${today}`, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
   };
 
   // Сохранение приема пищи в дневной журнал
@@ -303,402 +348,435 @@ export function NutritionTracker({
     setItems([]);
     setQuickInput('');
     setRecipeUrl('');
+    setIsFormOpen(false);
   };
 
   return (
-    <div className="space-y-4">
-      {/* 1. БЛОК ДНЕВНОЙ НОРМЫ КБЖУ В СТИЛЕ FITFUSION DARK LUXURY */}
-      <section className="relative overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-br from-[#26211F] via-[#201C1A] to-[#141211] p-5 shadow-2xl shadow-black/60">
-        {/* Фоновый мягкий блик */}
+    <div className="space-y-4 pb-24">
+      {/* 1. СЕЛЕКТОР ДАТЫ (PINTEREST STYLE: < Сегодня >) */}
+      <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-[#16161C] px-4 py-2.5 shadow-sm">
+        <button
+          type="button"
+          onClick={() => hapticImpact('light')}
+          className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#1C1C24] text-[#8F90A6] hover:text-white"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <span className="text-xs font-black tracking-wider text-white uppercase">
+          Сегодня
+        </span>
+        <button
+          type="button"
+          onClick={() => hapticImpact('light')}
+          className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#1C1C24] text-[#8F90A6] hover:text-white"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* 2. КРУГОВОЙ СЧЕТЧИК КАЛОРИЙ И МАКРОСЫ (PINTEREST NUTRITION SCREEN) */}
+      <section className="relative overflow-hidden rounded-3xl border border-white/5 bg-[#16161C] p-5 shadow-2xl shadow-black/80">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -top-16 -right-16 h-40 w-40 rounded-full bg-[#F5BA42]/10 blur-3xl"
+          className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-[#C4F124]/10 blur-3xl"
         />
 
-        <div className="relative flex items-center justify-between">
-          <div>
-            <h2 className="flex items-center gap-1.5 text-xs font-black tracking-wider text-[#FAF7F5] uppercase">
-              <Flame className="h-4 w-4 text-[#F5BA42]" />
-              Дневная норма КБЖУ
-            </h2>
-            <p className="mt-0.5 text-[11px] text-[#A8A199]">
-              Сплошная шкала — съедено, полупрозрачная — текущий ввод
-            </p>
-          </div>
-          <div className="text-right">
-            <span className="font-mono text-2xl font-black text-[#F5BA42] tabular-nums">
-              {Math.round(projectedTotals.calories)}
-            </span>
-            <span className="font-mono text-xs font-bold text-[#A8A199] tabular-nums">
-              {' '}
-              / {dailyGoals.calories} ккал
-            </span>
-          </div>
-        </div>
+        <div className="relative flex flex-col sm:flex-row items-center justify-between gap-6">
+          {/* Левая часть: большой круговой радиальный индикатор калорий */}
+          <div className="relative flex items-center justify-center">
+            <svg className="h-44 w-44 -rotate-90 transform" viewBox="0 0 100 100">
+              <circle
+                cx="50"
+                cy="50"
+                r="42"
+                fill="none"
+                stroke="#1C1C24"
+                strokeWidth="7"
+              />
+              <circle
+                cx="50"
+                cy="50"
+                r="42"
+                fill="none"
+                stroke="url(#calorieGradient)"
+                strokeWidth="7"
+                strokeDasharray="264"
+                strokeDashoffset={264 - (264 * Math.min(100, caloriePercent)) / 100}
+                strokeLinecap="round"
+                className="transition-all duration-700 ease-out"
+              />
+              <defs>
+                <linearGradient id="calorieGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#C4F124" />
+                  <stop offset="50%" stopColor="#FF6D3B" />
+                  <stop offset="100%" stopColor="#C4F124" />
+                </linearGradient>
+              </defs>
+            </svg>
 
-        {/* Главный прогресс-бар калорий */}
-        <MacroProgressBar
-          label="Калории"
-          unit="ккал"
-          logged={loggedDayTotals.calories}
-          projected={projectedTotals.calories}
-          goal={dailyGoals.calories}
-          barColor="bg-gradient-to-r from-[#F5BA42] via-[#f7cb68] to-[#F5BA42]"
-          previewColor="bg-[#F5BA42]/35"
-        />
+            {/* Текст в центре круга */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+              <span className="font-mono text-3xl font-black text-white tabular-nums tracking-tight">
+                {Math.round(projectedTotals.calories).toLocaleString('ru-RU')}
+              </span>
+              <span className="text-[11px] font-bold text-[#8F90A6]">
+                / {dailyGoals.calories.toLocaleString('ru-RU')} kcal
+              </span>
+              <span className="mt-0.5 text-[10px] font-black uppercase tracking-wider text-[#C4F124]">
+                Consumed
+              </span>
+            </div>
+          </div>
 
-        {/* Прогресс-бары Белков, Жиров и Углеводов */}
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <MacroProgressBar
-            label="Белки"
-            unit="г"
-            logged={loggedDayTotals.protein}
-            projected={projectedTotals.protein}
-            goal={dailyGoals.protein}
-            barColor="bg-gradient-to-r from-[#9e2240] via-[#bf2c4f] to-[#7a1830]"
-            previewColor="bg-[#9e2240]/40"
-          />
-          <MacroProgressBar
-            label="Жиры"
-            unit="г"
-            logged={loggedDayTotals.fats}
-            projected={projectedTotals.fats}
-            goal={dailyGoals.fats}
-            barColor="bg-gradient-to-r from-[#d9942a] via-[#e5aa32] to-[#F5BA42]"
-            previewColor="bg-[#d9942a]/40"
-          />
-          <MacroProgressBar
-            label="Углеводы"
-            unit="г"
-            logged={loggedDayTotals.carbs}
-            projected={projectedTotals.carbs}
-            goal={dailyGoals.carbs}
-            barColor="bg-gradient-to-r from-[#a35332] via-[#bd623c] to-[#873e21]"
-            previewColor="bg-[#a35332]/40"
-          />
+          {/* Правая часть: 3 карточки макронутриентов с точками */}
+          <div className="flex w-full sm:w-56 flex-col gap-2.5">
+            {/* БЕЛКИ (Protein) */}
+            <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-[#101014] p-3">
+              <div className="flex items-center gap-2.5">
+                <span className="h-3 w-3 rounded-full bg-[#22C55E] ring-2 ring-[#22C55E]/30" />
+                <div>
+                  <span className="block text-[10px] font-bold text-[#8F90A6] uppercase">
+                    Protein
+                  </span>
+                  <span className="font-mono text-xs font-black text-white tabular-nums">
+                    {Math.round(projectedTotals.protein)}g{' '}
+                    <span className="text-[#8F90A6] font-normal">/ {dailyGoals.protein}g</span>
+                  </span>
+                </div>
+              </div>
+              <span className="font-mono text-xs font-black text-[#22C55E]">
+                {Math.round((projectedTotals.protein / dailyGoals.protein) * 100)}%
+              </span>
+            </div>
+
+            {/* УГЛЕВОДЫ (Carbs) */}
+            <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-[#101014] p-3">
+              <div className="flex items-center gap-2.5">
+                <span className="h-3 w-3 rounded-full bg-[#FF6D3B] ring-2 ring-[#FF6D3B]/30" />
+                <div>
+                  <span className="block text-[10px] font-bold text-[#8F90A6] uppercase">
+                    Carbs
+                  </span>
+                  <span className="font-mono text-xs font-black text-white tabular-nums">
+                    {Math.round(projectedTotals.carbs)}g{' '}
+                    <span className="text-[#8F90A6] font-normal">/ {dailyGoals.carbs}g</span>
+                  </span>
+                </div>
+              </div>
+              <span className="font-mono text-xs font-black text-[#FF6D3B]">
+                {Math.round((projectedTotals.carbs / dailyGoals.carbs) * 100)}%
+              </span>
+            </div>
+
+            {/* ЖИРЫ (Fat) */}
+            <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-[#101014] p-3">
+              <div className="flex items-center gap-2.5">
+                <span className="h-3 w-3 rounded-full bg-[#8A4FFF] ring-2 ring-[#8A4FFF]/30" />
+                <div>
+                  <span className="block text-[10px] font-bold text-[#8F90A6] uppercase">
+                    Fat
+                  </span>
+                  <span className="font-mono text-xs font-black text-white tabular-nums">
+                    {Math.round(projectedTotals.fats)}g{' '}
+                    <span className="text-[#8F90A6] font-normal">/ {dailyGoals.fats}g</span>
+                  </span>
+                </div>
+              </div>
+              <span className="font-mono text-xs font-black text-[#8A4FFF]">
+                {Math.round((projectedTotals.fats / dailyGoals.fats) * 100)}%
+              </span>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* 2. ФОРМА ДОБАВЛЕНИЯ ПРИЕМА ПИЩИ */}
-      <form
-        onSubmit={handleSaveMeal}
-        className="space-y-4 rounded-3xl border border-white/5 bg-[#24201E] p-5 shadow-2xl shadow-black/50"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="flex items-center gap-2 text-xs font-black tracking-wider text-[#FAF7F5] uppercase">
-            <Utensils className="h-4 w-4 text-[#F5BA42]" />
-            Добавить прием пищи
+      {/* 3. СПИСОК ПРИЕМОВ ПИЩИ (PINTEREST MEALS LIST) */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <h2 className="text-xs font-black tracking-wider text-white uppercase">
+            Meals (Приемы пищи)
           </h2>
-
-          {/* Переключатель типа приема пищи */}
-          <div className="inline-flex rounded-2xl border border-white/5 bg-[#1E1A18] p-1 shadow-inner">
-            {(Object.keys(MEAL_TYPE_LABELS) as MealType[]).map((type) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => {
-                  hapticImpact('light');
-                  setMealType(type);
-                }}
-                className={`rounded-xl px-2.5 py-1 text-xs font-bold transition active:scale-95 ${
-                  mealType === type
-                    ? 'bg-[#F5BA42] text-stone-950 shadow-md shadow-[#F5BA42]/15'
-                    : 'text-[#A8A199] hover:text-[#FAF7F5]'
-                }`}
-              >
-                {MEAL_TYPE_LABELS[type]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Текстовый экспресс-парсер рациона (бордовая подложка с золотыми акцентами) */}
-        <div className="rounded-2xl border border-[#5B1626]/50 bg-gradient-to-br from-[#29171b] via-[#1E1A18] to-[#141211] p-3.5 shadow-inner">
-          <label className="mb-2 flex items-center gap-1.5 text-xs font-bold text-[#F5BA42]">
-            <Sparkles className="h-3.5 w-3.5" />
-            Быстрый парсер рациона (через запятую с граммовкой)
-          </label>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <input
-              type="text"
-              value={quickInput}
-              onChange={(e) => setQuickInput(e.target.value)}
-              placeholder="Напр.: Творог 5% 200г, банан 120г, финики 40г"
-              className="w-full rounded-xl border border-white/10 bg-[#141211] px-3.5 py-2.5 text-sm text-[#FAF7F5] placeholder:text-stone-500 focus:border-[#F5BA42] focus:outline-none"
-            />
-            <button
-              type="button"
-              onClick={handleParseText}
-              className="shrink-0 rounded-xl bg-[#F5BA42] px-4 py-2.5 text-xs font-bold text-stone-950 shadow-md shadow-[#F5BA42]/15 transition hover:bg-[#e5aa32] active:scale-95"
-            >
-              Разобрать БЖУ
-            </button>
-          </div>
-        </div>
-
-        {/* Добавление продукта из справочника */}
-        <div className="flex gap-2">
-          <select
-            value={selectedCatalogId}
-            onChange={(e) => setSelectedCatalogId(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-[#1A1615] px-3 py-2.5 text-xs font-medium text-[#FAF7F5] focus:border-[#F5BA42] focus:outline-none"
-          >
-            {DEFAULT_FOOD_CATALOG.map((food) => (
-              <option key={food.id} value={food.id} className="bg-[#1A1615] text-[#FAF7F5]">
-                {food.name} ({food.caloriesPer100g} ккал / Б:{food.proteinPer100g}{' '}
-                Ж:{food.fatsPer100g} У:{food.carbsPer100g})
-              </option>
-            ))}
-          </select>
+          {/* Круглая неоново-лаймовая кнопка добавления блюда из Pinterest */}
           <button
             type="button"
-            onClick={handleAddFromCatalog}
-            className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-white/5 bg-[#1E1A18] px-3.5 py-2 text-xs font-bold text-[#FAF7F5] transition hover:border-[#F5BA42]/40 active:scale-95"
+            onClick={() => {
+              hapticImpact('light');
+              setIsFormOpen((prev) => !prev);
+            }}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#C4F124] text-black shadow-lg shadow-[#C4F124]/20 transition-transform hover:scale-105 active:scale-95"
+            title="Добавить прием пищи"
           >
-            <Plus className="h-3.5 w-3.5 text-[#F5BA42]" />В список
+            <Plus className={`h-4 w-4 stroke-[3] transition-transform duration-200 ${isFormOpen ? 'rotate-45' : ''}`} />
           </button>
         </div>
 
-        {/* Интерактивный список продуктов с живым пересчетом от граммовки */}
-        {items.length > 0 ? (
-          <div className="space-y-2.5">
-            {items.map((item) => {
-              const macros = calculatePortionMacros(item.weightGrams, item);
-
-              return (
-                <div
-                  key={item.id}
-                  className="rounded-2xl border border-white/5 bg-[#1E1A18] p-3.5"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-bold text-[#FAF7F5]">
-                          {item.productName}
-                        </span>
-                        {!item.matchedFromCatalog && (
-                          <span
-                            title="Продукт не найден в словаре"
-                            className="inline-flex items-center gap-0.5 rounded-md bg-[#5B1626] px-1.5 py-0.5 text-[9px] font-bold text-[#F5BA42]"
-                          >
-                            <Info className="h-2.5 w-2.5" />
-                            свой БЖУ
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-1 font-mono text-[11px] text-[#A8A199] tabular-nums">
-                        Порция:{' '}
-                        <strong className="font-bold text-[#F5BA42]">
-                          {macros.calories} ккал
-                        </strong>{' '}
-                        · Б: {macros.protein}г · Ж: {macros.fats}г · У:{' '}
-                        {macros.carbs}г
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => removeItem(item.id)}
-                      aria-label="Удалить продукт"
-                      className="rounded-lg p-1 text-stone-500 transition hover:bg-rose-500/15 hover:text-rose-400"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-
-                  {/* Управление граммовкой */}
-                  <div className="mt-2.5 flex items-center justify-between gap-2 pt-1 border-t border-white/5">
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => adjustWeight(item.id, -25)}
-                        className="rounded-lg border border-white/5 bg-[#24201E] px-2.5 py-1 font-mono text-xs font-bold text-[#FAF7F5] tabular-nums transition hover:border-[#F5BA42]/30 active:scale-95"
-                      >
-                        -25г
-                      </button>
-
-                      <div className="relative w-24">
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          min={0}
-                          step={5}
-                          value={item.weightGrams || ''}
-                          onChange={(e) =>
-                            updateItemField(
-                              item.id,
-                              'weightGrams',
-                              e.target.value
-                            )
-                          }
-                          className="w-full rounded-xl border border-white/10 bg-[#141211] py-1 pr-6 pl-2 text-center font-mono text-sm font-bold text-[#FAF7F5] tabular-nums focus:border-[#F5BA42] focus:outline-none"
-                        />
-                        <span className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-xs text-[#A8A199]">
-                          г
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => adjustWeight(item.id, 25)}
-                        className="rounded-lg border border-white/5 bg-[#24201E] px-2.5 py-1 font-mono text-xs font-bold text-[#FAF7F5] tabular-nums transition hover:border-[#F5BA42]/30 active:scale-95"
-                      >
-                        +25г
-                      </button>
-                    </div>
-
-                    <span className="font-mono text-[10px] text-[#A8A199] tabular-nums">
-                      100г = {item.caloriesPer100g} ккал
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Итог по текущему приему пищи */}
-            <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-[#141211] px-4 py-3 text-xs">
-              <span className="font-bold text-[#A8A199] uppercase tracking-wide">
-                Итого за {MEAL_TYPE_LABELS[mealType].toLowerCase()}:
-              </span>
-              <span className="font-mono font-bold text-[#F5BA42] tabular-nums">
-                {currentMealTotals.calories} ккал · Б {currentMealTotals.protein} ·
-                Ж {currentMealTotals.fats} · У {currentMealTotals.carbs}
-              </span>
-            </div>
-          </div>
-        ) : (
-          <p className="py-3 text-center text-xs text-[#A8A199]">
-            Введите рацион строкой выше или выберите продукт из справочника
-          </p>
-        )}
-
-        {/* Ссылка на рецепт */}
-        <div>
-          <input
-            type="url"
-            value={recipeUrl}
-            onChange={(e) => setRecipeUrl(e.target.value)}
-            placeholder="Ссылка на рецепт (необязательно): https://..."
-            className="w-full rounded-2xl border border-white/10 bg-[#1A1615] px-3.5 py-2.5 text-xs text-[#FAF7F5] placeholder:text-stone-500 focus:border-[#F5BA42] focus:outline-none"
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={items.length === 0}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#F5BA42] py-3.5 text-xs font-black tracking-wider text-stone-950 uppercase shadow-xl shadow-[#F5BA42]/20 transition hover:bg-[#e5aa32] active:scale-[0.98] disabled:opacity-40"
-        >
-          <Check className="h-4 w-4" />
-          Записать в дневник питания
-        </button>
-      </form>
-
-      {/* 3. ИСТОРИЯ ЗАПИСАННЫХ ЗА СЕГОДНЯ ПРИЕМОВ ПИЩИ */}
-      {loggedMeals.length > 0 && (
-        <section className="space-y-2.5">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="text-xs font-black tracking-wider text-[#A8A199] uppercase">
-              Записано сегодня
-            </h3>
-            <span className="font-mono text-[10px] text-[#A8A199] tabular-nums">
-              {loggedMeals.length} приемов
-            </span>
-          </div>
-
+        {/* Карточки приемов пищи */}
+        <div className="space-y-2.5">
           {loggedMeals.map((meal) => (
             <div
               key={meal.id}
-              className="flex items-center justify-between rounded-3xl border border-white/5 bg-[#24201E] px-4 py-3.5 shadow-xl shadow-black/40"
+              className="flex items-center justify-between rounded-2xl border border-white/5 bg-[#16161C] p-3.5 shadow-md transition hover:border-white/10"
             >
-              <div className="min-w-0 pr-3">
-                <span className="inline-flex items-center rounded-full bg-[#5B1626] px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#F5BA42]">
-                  {MEAL_TYPE_LABELS[meal.mealType]}
-                </span>
-                <p className="mt-1 line-clamp-1 text-xs font-medium text-[#FAF7F5]">
-                  {meal.title}
-                </p>
-                {meal.recipeUrl && (
-                  <a
-                    href={meal.recipeUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-[#F5BA42] hover:underline"
-                  >
-                    Рецепт <ExternalLink className="h-2.5 w-2.5" />
-                  </a>
-                )}
+              <div className="flex items-center gap-3 min-w-0 pr-2">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#1C1C24] ring-1 ring-white/5">
+                  {MEAL_ICONS[meal.mealType] || <Utensils className="h-4 w-4 text-[#C4F124]" />}
+                </div>
+
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-white">
+                      {MEAL_TYPE_LABELS[meal.mealType]}
+                    </span>
+                    {meal.recipeUrl && (
+                      <a
+                        href={meal.recipeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[#C4F124] hover:underline"
+                      >
+                        Рецепт <ExternalLink className="h-2.5 w-2.5" />
+                      </a>
+                    )}
+                  </div>
+                  <p className="line-clamp-1 text-[11px] font-medium text-[#8F90A6]">
+                    {meal.title}
+                  </p>
+                </div>
               </div>
-              <div className="shrink-0 text-right">
-                <p className="font-mono text-sm font-black text-[#F5BA42] tabular-nums">
-                  {meal.macros.calories} ккал
-                </p>
-                <p className="font-mono text-[10px] text-[#A8A199] tabular-nums">
-                  Б:{meal.macros.protein} Ж:{meal.macros.fats} У:{meal.macros.carbs}
-                </p>
+
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="text-right">
+                  <span className="font-mono text-sm font-black text-white tabular-nums">
+                    {Math.round(meal.macros.calories)} kcal
+                  </span>
+                  <p className="font-mono text-[10px] text-[#8F90A6] tabular-nums">
+                    Б:{meal.macros.protein} Ж:{meal.macros.fats} У:{meal.macros.carbs}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleDeleteMeal(meal.id)}
+                  aria-label="Удалить прием"
+                  className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/5 text-[#8F90A6] transition hover:bg-rose-950/40 hover:text-rose-400 active:scale-95"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
           ))}
-        </section>
-      )}
-    </div>
-  );
-}
+        </div>
+      </section>
 
-// Подкомпонент шкалы выполнения суточной нормы нутриента
-function MacroProgressBar({
-  label,
-  unit,
-  logged,
-  projected,
-  goal,
-  barColor,
-  previewColor,
-}: {
-  label: string;
-  unit: string;
-  logged: number;
-  projected: number;
-  goal: number;
-  barColor: string;
-  previewColor: string;
-}) {
-  const safeGoal = goal > 0 ? goal : 1;
-  const loggedPct = Math.min(100, Math.round((logged / safeGoal) * 100));
-  const projectedPct = Math.min(100, Math.round((projected / safeGoal) * 100));
-  const isOverLimit = projected > safeGoal;
-
-  return (
-    <div className="mt-3">
-      <div className="mb-1.5 flex items-baseline justify-between text-xs">
-        <span className="font-bold text-[#FAF7F5] uppercase tracking-wide text-[11px]">
-          {label}
-        </span>
-        <span
-          className={`font-mono text-[11px] font-bold tabular-nums ${
-            isOverLimit ? 'text-rose-400' : 'text-[#A8A199]'
-          }`}
+      {/* 4. РАСКРЫВАЮЩАЯСЯ ФОРМА ДОБАВЛЕНИЯ ПРИЕМА ПИЩИ */}
+      {isFormOpen && (
+        <form
+          onSubmit={handleSaveMeal}
+          className="space-y-4 rounded-3xl border border-white/5 bg-[#16161C] p-5 shadow-2xl shadow-black/80 animate-in fade-in duration-200"
         >
-          <strong className="text-[#FAF7F5]">{Math.round(projected * 10) / 10}</strong> / {goal} {unit}{' '}
-          <span className="text-[#F5BA42]">({Math.round((projected / safeGoal) * 100)}%)</span>
-        </span>
-      </div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 text-xs font-black tracking-wider text-white uppercase">
+              <Utensils className="h-4 w-4 text-[#C4F124]" />
+              Новая запись рациона
+            </h2>
 
-      <div className="relative h-2 w-full overflow-hidden rounded-full bg-[#141211] ring-1 ring-white/5">
-        {/* Предпросмотр с учетом редактируемой формы */}
-        <div
-          style={{ width: `${projectedPct}%` }}
-          className={`absolute inset-y-0 left-0 rounded-full transition-all duration-300 ${
-            isOverLimit ? 'bg-rose-500/40' : previewColor
-          }`}
-        />
-        {/* Уже сохраненный прогресс за день */}
-        <div
-          style={{ width: `${loggedPct}%` }}
-          className={`relative h-full rounded-full transition-all duration-300 ${
-            isOverLimit ? 'bg-rose-500' : barColor
-          }`}
-        />
-      </div>
+            {/* Переключатель типа приема пищи */}
+            <div className="inline-flex rounded-2xl border border-white/5 bg-[#101014] p-1 shadow-inner">
+              {(Object.keys(MEAL_TYPE_LABELS) as MealType[]).map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => {
+                    hapticImpact('light');
+                    setMealType(type);
+                  }}
+                  className={`rounded-xl px-2.5 py-1 text-xs font-black transition active:scale-95 ${
+                    mealType === type
+                      ? 'bg-[#C4F124] text-black shadow-md shadow-[#C4F124]/15'
+                      : 'text-[#8F90A6] hover:text-white'
+                  }`}
+                >
+                  {MEAL_TYPE_LABELS[type]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Текстовый экспресс-парсер рациона */}
+          <div className="rounded-2xl border border-[#C4F124]/20 bg-[#101014] p-3.5">
+            <label className="mb-2 flex items-center gap-1.5 text-xs font-bold text-[#C4F124]">
+              <Sparkles className="h-3.5 w-3.5" />
+              Быстрый парсер продуктов (граммовка через запятую)
+            </label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                type="text"
+                value={quickInput}
+                onChange={(e) => setQuickInput(e.target.value)}
+                placeholder="Напр.: Творог 5% 200г, банан 120г, миндаль 30г"
+                className="w-full rounded-xl border border-white/10 bg-[#16161C] px-3.5 py-2.5 text-sm text-white placeholder:text-[#8F90A6]/40 focus:border-[#C4F124] focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={handleParseText}
+                className="shrink-0 rounded-xl bg-[#C4F124] px-4 py-2.5 text-xs font-black text-black shadow-md shadow-[#C4F124]/15 transition hover:bg-[#b0db1f] active:scale-95"
+              >
+                Разобрать БЖУ
+              </button>
+            </div>
+          </div>
+
+          {/* Добавление продукта из справочника */}
+          <div className="flex gap-2">
+            <select
+              value={selectedCatalogId}
+              onChange={(e) => setSelectedCatalogId(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-[#101014] px-3 py-2.5 text-xs font-medium text-white focus:border-[#C4F124] focus:outline-none"
+            >
+              {DEFAULT_FOOD_CATALOG.map((food) => (
+                <option key={food.id} value={food.id} className="bg-[#16161C] text-white">
+                  {food.name} ({food.caloriesPer100g} ккал / Б:{food.proteinPer100g} Ж:{food.fatsPer100g} У:{food.carbsPer100g})
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={handleAddFromCatalog}
+              className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-white/5 bg-[#1C1C24] px-3.5 py-2 text-xs font-bold text-white transition hover:border-[#C4F124]/40 active:scale-95"
+            >
+              <Plus className="h-3.5 w-3.5 text-[#C4F124]" />
+              В список
+            </button>
+          </div>
+
+          {/* Интерактивный список продуктов */}
+          {items.length > 0 && (
+            <div className="space-y-2.5">
+              {items.map((item) => {
+                const macros = calculatePortionMacros(item.weightGrams, item);
+
+                return (
+                  <div
+                    key={item.id}
+                    className="rounded-2xl border border-white/5 bg-[#101014] p-3.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-bold text-white">
+                            {item.productName}
+                          </span>
+                          {!item.matchedFromCatalog && (
+                            <span
+                              title="Продукт не найден в словаре"
+                              className="inline-flex items-center gap-0.5 rounded-md bg-[#8A4FFF]/20 px-1.5 py-0.5 text-[9px] font-bold text-[#8A4FFF]"
+                            >
+                              <Info className="h-2.5 w-2.5" />
+                              свой БЖУ
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 font-mono text-[11px] text-[#8F90A6] tabular-nums">
+                          Порция:{' '}
+                          <strong className="font-black text-[#C4F124]">
+                            {macros.calories} ккал
+                          </strong>{' '}
+                          · Б: {macros.protein}г · Ж: {macros.fats}г · У: {macros.carbs}г
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item.id)}
+                        aria-label="Удалить продукт"
+                        className="rounded-lg p-1 text-[#8F90A6] transition hover:bg-rose-500/15 hover:text-rose-400"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Управление граммовкой */}
+                    <div className="mt-2.5 flex items-center justify-between gap-2 pt-1 border-t border-white/5">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => adjustWeight(item.id, -25)}
+                          className="rounded-lg border border-white/5 bg-[#1C1C24] px-2.5 py-1 font-mono text-xs font-bold text-white tabular-nums transition hover:border-[#C4F124]/30 active:scale-95"
+                        >
+                          -25г
+                        </button>
+
+                        <div className="relative w-24">
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min={0}
+                            step={5}
+                            value={item.weightGrams || ''}
+                            onChange={(e) =>
+                              updateItemField(
+                                item.id,
+                                'weightGrams',
+                                e.target.value
+                              )
+                            }
+                            className="w-full rounded-xl border border-white/10 bg-[#16161C] py-1 pr-6 pl-2 text-center font-mono text-sm font-bold text-white tabular-nums focus:border-[#C4F124] focus:outline-none"
+                          />
+                          <span className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-xs text-[#8F90A6]">
+                            г
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => adjustWeight(item.id, 25)}
+                          className="rounded-lg border border-white/5 bg-[#1C1C24] px-2.5 py-1 font-mono text-xs font-bold text-white tabular-nums transition hover:border-[#C4F124]/30 active:scale-95"
+                        >
+                          +25г
+                        </button>
+                      </div>
+
+                      <span className="font-mono text-[10px] text-[#8F90A6] tabular-nums">
+                        100г = {item.caloriesPer100g} ккал
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Итог по текущему приему пищи */}
+              <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-[#16161C] px-4 py-3 text-xs">
+                <span className="font-bold text-[#8F90A6] uppercase tracking-wide">
+                  Итого за {MEAL_TYPE_LABELS[mealType].toLowerCase()}:
+                </span>
+                <span className="font-mono font-black text-[#C4F124] tabular-nums">
+                  {currentMealTotals.calories} ккал · Б {currentMealTotals.protein} · Ж {currentMealTotals.fats} · У {currentMealTotals.carbs}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Ссылка на рецепт */}
+          <div>
+            <input
+              type="url"
+              value={recipeUrl}
+              onChange={(e) => setRecipeUrl(e.target.value)}
+              placeholder="Ссылка на рецепт (необязательно): https://..."
+              className="w-full rounded-2xl border border-white/10 bg-[#101014] px-3.5 py-2.5 text-xs text-white placeholder:text-[#8F90A6]/40 focus:border-[#C4F124] focus:outline-none"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={items.length === 0}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#C4F124] py-3.5 text-xs font-black tracking-wider text-black uppercase shadow-xl shadow-[#C4F124]/20 transition hover:bg-[#b0db1f] active:scale-[0.98] disabled:opacity-40"
+          >
+            <Check className="h-4 w-4 stroke-[3]" />
+            Записать в дневник питания
+          </button>
+        </form>
+      )}
     </div>
   );
 }
