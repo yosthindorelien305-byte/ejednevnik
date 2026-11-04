@@ -5,18 +5,20 @@ export interface UserBodyProfile {
   heightCm: number;
   defaultRestSeconds: number;
   updatedAt?: string;
+  isCustom?: boolean;
 }
 
 const BODY_PROFILE_KEY = 'ejednevnik_user_body_profile';
 
-const DEFAULT_PROFILE: UserBodyProfile = {
+export const DEFAULT_PROFILE: UserBodyProfile = {
   weightKg: 75,
   heightCm: 178,
   defaultRestSeconds: 90,
+  isCustom: false,
 };
 
 /**
- * Синхронное чтение профиля из localStorage для мгновенного первого рендера.
+ * Синхронное получение профиля из localStorage для мгновенного первого рендера.
  */
 export function getUserBodyProfile(): UserBodyProfile {
   if (typeof window === 'undefined') return DEFAULT_PROFILE;
@@ -30,6 +32,7 @@ export function getUserBodyProfile(): UserBodyProfile {
         heightCm: Number(parsed.heightCm) || 178,
         defaultRestSeconds: Math.max(10, Number(parsed.defaultRestSeconds) || 90),
         updatedAt: parsed.updatedAt,
+        isCustom: parsed.isCustom ?? true,
       };
     }
   } catch {
@@ -40,70 +43,81 @@ export function getUserBodyProfile(): UserBodyProfile {
 
 /**
  * Асинхронная загрузка актуального профиля из Supabase базы данных и API.
+ * ВАЖНО: Никогда не перезаписывает сохраненные пользователем локальные данные
+ * дефолтными значениями (75/178/90), если сервер вернул дефолты.
  */
 export async function fetchUserBodyProfileAsync(): Promise<UserBodyProfile> {
   if (typeof window === 'undefined') return DEFAULT_PROFILE;
 
-  // 1. Сначала пробуем получить данные через серверный API /api/profile
-  try {
-    const res = await fetch('/api/profile', { cache: 'no-store' });
-    if (res.ok) {
-      const data = await res.json();
-      if (data?.ok && data.profile) {
-        const enriched: UserBodyProfile = {
-          weightKg: Number(data.profile.weightKg) || 75,
-          heightCm: Number(data.profile.heightCm) || 178,
-          defaultRestSeconds: Math.max(10, Number(data.profile.defaultRestSeconds) || 90),
-          updatedAt: new Date().toISOString(),
-        };
-        try {
-          localStorage.setItem(BODY_PROFILE_KEY, JSON.stringify(enriched));
-        } catch {
-          // ignore
-        }
-        return enriched;
-      }
-    }
-  } catch (err) {
-    console.warn('[fetchUserBodyProfileAsync API failed]:', err);
-  }
+  const localProfile = getUserBodyProfile();
 
-  // 2. Вторая попытка: напрямую через клиент Supabase
+  // 1. Проверяем клиентскую сессию Supabase
+  let accessToken: string | null = null;
+  let clientUserId: string | null = null;
+
   try {
     const supabase = getSupabaseBrowserClient();
     if (supabase) {
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session) {
+        accessToken = session.access_token;
+        clientUserId = session.user.id;
 
-      if (user) {
-        // Проверяем таблицу profiles
-        const { data: profileRow } = await supabase
-          .from('profiles')
-          .select('body_weight, body_height, default_rest_seconds')
-          .eq('id', user.id)
-          .maybeSingle();
+        // Если в сессии браузера уже есть сохраненные метаданные — они самые свежие
+        const meta = session.user.user_metadata;
+        if (
+          meta &&
+          (meta.body_weight !== undefined ||
+            meta.body_height !== undefined ||
+            meta.default_rest_seconds !== undefined)
+        ) {
+          const fromMeta: UserBodyProfile = {
+            weightKg: Number(meta.body_weight) || localProfile.weightKg || 75,
+            heightCm: Number(meta.body_height) || localProfile.heightCm || 178,
+            defaultRestSeconds: Math.max(
+              10,
+              Number(meta.default_rest_seconds) || localProfile.defaultRestSeconds || 90
+            ),
+            isCustom: true,
+            updatedAt: new Date().toISOString(),
+          };
+          try {
+            localStorage.setItem(BODY_PROFILE_KEY, JSON.stringify(fromMeta));
+          } catch {
+            // ignore
+          }
+          return fromMeta;
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
 
-        const userMeta = user.user_metadata || {};
+  // 2. Делаем запрос к серверному API /api/profile
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
 
-        const weight =
-          profileRow?.body_weight ??
-          userMeta.body_weight ??
-          userMeta.weightKg;
-        const height =
-          profileRow?.body_height ??
-          userMeta.body_height ??
-          userMeta.heightCm;
-        const rest =
-          profileRow?.default_rest_seconds ??
-          userMeta.default_rest_seconds ??
-          userMeta.defaultRestSeconds;
+    const url = clientUserId
+      ? `/api/profile?userId=${encodeURIComponent(clientUserId)}`
+      : '/api/profile';
 
-        if (weight || height || rest) {
+    const res = await fetch(url, { headers, cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.ok && data.profile) {
+        // Если сервер вернул кастомные параметры ИЛИ у нас локально еще нет кастомных
+        if (data.isCustom || !localProfile.isCustom) {
           const enriched: UserBodyProfile = {
-            weightKg: Number(weight) || 75,
-            heightCm: Number(height) || 178,
-            defaultRestSeconds: Math.max(10, Number(rest) || 90),
+            weightKg: Number(data.profile.weightKg) || 75,
+            heightCm: Number(data.profile.heightCm) || 178,
+            defaultRestSeconds: Math.max(10, Number(data.profile.defaultRestSeconds) || 90),
+            isCustom: Boolean(data.isCustom),
             updatedAt: new Date().toISOString(),
           };
           try {
@@ -116,16 +130,18 @@ export async function fetchUserBodyProfileAsync(): Promise<UserBodyProfile> {
       }
     }
   } catch (err) {
-    console.warn('[fetchUserBodyProfileAsync direct Supabase failed]:', err);
+    console.warn('[fetchUserBodyProfileAsync error]:', err);
   }
 
-  // 3. Fallback к локальному кэшу
-  return getUserBodyProfile();
+  // 3. Возвращаем локальный профиль, если он уже был настроен
+  return localProfile;
 }
 
 /**
- * Надежное сохранение профиля в localStorage + Supabase базу данных (таблицу profiles)
- * и auth user_metadata.
+ * Надежное сохранение профиля:
+ * 1. В локальный кэш localStorage (гарантирует немедленную отзывчивость UI).
+ * 2. В метаданные пользователя Supabase Auth (работает мгновенно в облаке).
+ * 3. В серверный эндпоинт /api/profile (обновляет таблицу profiles в Supabase).
  */
 export async function saveUserBodyProfile(
   profile: UserBodyProfile
@@ -134,10 +150,11 @@ export async function saveUserBodyProfile(
     weightKg: Math.round(Number(profile.weightKg) * 10) / 10,
     heightCm: Math.round(Number(profile.heightCm)),
     defaultRestSeconds: Math.max(10, Math.round(Number(profile.defaultRestSeconds) || 90)),
+    isCustom: true,
     updatedAt: new Date().toISOString(),
   };
 
-  // 1. Мгновенно сохраняем в локальный кэш
+  // 1. Мгновенно фиксируем в localStorage
   if (typeof window !== 'undefined') {
     try {
       localStorage.setItem(BODY_PROFILE_KEY, JSON.stringify(enriched));
@@ -146,38 +163,21 @@ export async function saveUserBodyProfile(
     }
   }
 
-  // 2. Отправляем в серверный эндпоинт для сохранения в Supabase базу данных
-  try {
-    const res = await fetch('/api/profile', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        weightKg: enriched.weightKg,
-        heightCm: enriched.heightCm,
-        defaultRestSeconds: enriched.defaultRestSeconds,
-      }),
-    });
-    if (res.ok) {
-      const respData = await res.json();
-      if (respData?.profile) {
-        enriched.weightKg = respData.profile.weightKg;
-        enriched.heightCm = respData.profile.heightCm;
-        enriched.defaultRestSeconds = respData.profile.defaultRestSeconds;
-      }
-    }
-  } catch (err) {
-    console.warn('[saveUserBodyProfile API post failed]:', err);
-  }
+  let accessToken: string | null = null;
+  let clientUserId: string | null = null;
 
-  // 3. Сохраняем также через браузерный клиент Supabase (если авторизован)
+  // 2. Обновляем сессию браузерного клиента Supabase
   try {
     const supabase = getSupabaseBrowserClient();
     if (supabase) {
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      if (user) {
+      if (session) {
+        accessToken = session.access_token;
+        clientUserId = session.user.id;
+
         // Обновляем метаданные Auth
         try {
           await supabase.auth.updateUser({
@@ -200,7 +200,7 @@ export async function saveUserBodyProfile(
               body_height: enriched.heightCm,
               default_rest_seconds: enriched.defaultRestSeconds,
             })
-            .eq('id', user.id);
+            .eq('id', session.user.id);
         } catch {
           // ignore
         }
@@ -208,6 +208,37 @@ export async function saveUserBodyProfile(
     }
   } catch {
     // ignore
+  }
+
+  // 3. Отправляем в серверный эндпоинт /api/profile
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+
+    const res = await fetch('/api/profile', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        weightKg: enriched.weightKg,
+        heightCm: enriched.heightCm,
+        defaultRestSeconds: enriched.defaultRestSeconds,
+        userId: clientUserId,
+      }),
+    });
+
+    if (res.ok) {
+      const respData = await res.json();
+      if (respData?.profile) {
+        enriched.weightKg = respData.profile.weightKg;
+        enriched.heightCm = respData.profile.heightCm;
+        enriched.defaultRestSeconds = respData.profile.defaultRestSeconds;
+        enriched.isCustom = true;
+      }
+    }
+  } catch (err) {
+    console.warn('[saveUserBodyProfile API post warning]:', err);
   }
 
   return enriched;

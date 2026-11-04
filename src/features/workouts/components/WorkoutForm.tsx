@@ -518,6 +518,7 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                   payload.workoutDate ||
                   new Intl.DateTimeFormat('en-CA').format(new Date()),
                 title: payload.title,
+                body_weight: payload.bodyWeight,
                 notes: combinedNotes || null,
                 photo_urls: uploadedPhotoRefs,
                 last_updated_by: 'web',
