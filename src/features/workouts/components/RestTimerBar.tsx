@@ -5,13 +5,10 @@ import {
   Timer,
   Play,
   Pause,
-  RotateCcw,
-  Plus,
-  Minus,
-  X,
   Sparkles,
   ChevronUp,
   ChevronDown,
+  X,
 } from 'lucide-react';
 import { playRestTimerCompletedSound } from '../lib/timerSound';
 import { hapticImpact, hapticNotification } from '@/lib/telegram/webapp';
@@ -118,11 +115,11 @@ export function RestTimerBar({
           }}
           className={`flex items-center gap-2 rounded-full border px-4 py-2 shadow-2xl backdrop-blur-xl transition active:scale-95 ${
             timerState.isFinished
-              ? 'border-[#F5BA42] bg-[#F5BA42] text-stone-950 animate-bounce'
-              : 'border-[#F5BA42]/40 bg-[#1E1A18]/95 text-[#FAF7F5]'
+              ? 'border-[#C4F124] bg-[#C4F124] text-black font-black animate-bounce shadow-[#C4F124]/30'
+              : 'border-[#C4F124]/40 bg-[#16161C]/95 text-white shadow-black/80'
           }`}
         >
-          <Timer className={`h-4 w-4 ${timerState.isFinished ? 'text-stone-950' : 'text-[#F5BA42]'}`} />
+          <Timer className={`h-4 w-4 ${timerState.isFinished ? 'text-black' : 'text-[#C4F124]'}`} />
           <span className="font-mono text-sm font-black tabular-nums">
             {timerState.isFinished ? 'ГОТОВО!' : timeFormatted}
           </span>
@@ -137,14 +134,14 @@ export function RestTimerBar({
       <div
         className={`relative mx-auto max-w-md overflow-hidden rounded-3xl border shadow-2xl backdrop-blur-xl transition-all duration-300 ${
           timerState.isFinished
-            ? 'border-[#F5BA42] bg-gradient-to-r from-[#29171b] via-[#24201E] to-[#1E1A18] shadow-[#F5BA42]/20 ring-2 ring-[#F5BA42]/50 animate-pulse'
-            : 'border-white/10 bg-[#1A1615]/95 shadow-black/80'
+            ? 'border-[#C4F124] bg-[#16161C]/95 shadow-[#C4F124]/20 ring-2 ring-[#C4F124]/50 animate-pulse'
+            : 'border-white/10 bg-[#16161C]/95 shadow-black/80'
         }`}
       >
-        {/* Анимированная полоса прогресса сверху */}
+        {/* Анимированная полоса прогресса сверху (градиент Cyber Lime -> Neon Purple) */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-white/5">
           <div
-            className="h-full bg-gradient-to-r from-[#F5BA42] to-[#ffcf66] transition-all duration-1000 ease-linear"
+            className="h-full bg-gradient-to-r from-[#C4F124] via-[#8A4FFF] to-[#C4F124] transition-all duration-1000 ease-linear"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
@@ -156,14 +153,14 @@ export function RestTimerBar({
               <div
                 className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition ${
                   timerState.isFinished
-                    ? 'bg-[#F5BA42] text-stone-950'
-                    : 'bg-[#F5BA42]/15 text-[#F5BA42] ring-1 ring-[#F5BA42]/30'
+                    ? 'bg-[#C4F124] text-black'
+                    : 'bg-[#C4F124]/15 text-[#C4F124] ring-1 ring-[#C4F124]/30'
                 }`}
               >
                 {timerState.isFinished ? (
-                  <Sparkles className="h-6 w-6 animate-spin" />
+                  <Sparkles className="h-6 w-6 animate-spin text-black" />
                 ) : (
-                  <Timer className="h-6 w-6" />
+                  <Timer className="h-6 w-6 text-[#C4F124]" />
                 )}
               </div>
 
@@ -171,23 +168,23 @@ export function RestTimerBar({
                 <div className="flex items-baseline gap-2">
                   <span
                     className={`font-mono text-2xl sm:text-3xl font-black tracking-tight tabular-nums ${
-                      timerState.isFinished ? 'text-[#F5BA42]' : 'text-[#FAF7F5]'
+                      timerState.isFinished ? 'text-[#C4F124]' : 'text-white'
                     }`}
                   >
                     {timeFormatted}
                   </span>
                   {timerState.isPaused && (
-                    <span className="rounded-md bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-400 uppercase">
+                    <span className="rounded-md bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-black text-amber-400 uppercase">
                       Пауза
                     </span>
                   )}
                   {timerState.isFinished && (
-                    <span className="rounded-md bg-[#F5BA42] px-1.5 py-0.5 text-[10px] font-black text-stone-950 uppercase">
+                    <span className="rounded-md bg-[#C4F124] px-1.5 py-0.5 text-[10px] font-black text-black uppercase">
                       Время вышло!
                     </span>
                   )}
                 </div>
-                <p className="line-clamp-1 text-[11px] font-medium text-[#A8A199]">
+                <p className="line-clamp-1 text-[11px] font-medium text-[#8F90A6]">
                   {timerState.isFinished
                     ? 'Пора делать следующий подход 💪'
                     : timerState.exerciseName
@@ -205,7 +202,7 @@ export function RestTimerBar({
                     type="button"
                     onClick={() => handleAdjustTime(-15)}
                     title="Минус 15 секунд"
-                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/5 font-mono text-xs font-bold text-[#A8A199] transition hover:bg-white/10 active:scale-95"
+                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#1C1C24] font-mono text-xs font-bold text-[#8F90A6] transition hover:bg-white/10 hover:text-white active:scale-95"
                   >
                     -15
                   </button>
@@ -213,14 +210,14 @@ export function RestTimerBar({
                     type="button"
                     onClick={() => handleAdjustTime(30)}
                     title="Плюс 30 секунд"
-                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/5 font-mono text-xs font-bold text-[#F5BA42] transition hover:bg-white/10 active:scale-95"
+                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#1C1C24] font-mono text-xs font-black text-[#C4F124] transition hover:bg-[#C4F124]/20 active:scale-95"
                   >
                     +30
                   </button>
                   <button
                     type="button"
                     onClick={handleTogglePause}
-                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F5BA42]/15 text-[#F5BA42] transition hover:bg-[#F5BA42]/25 active:scale-95"
+                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#C4F124]/15 text-[#C4F124] transition hover:bg-[#C4F124]/25 active:scale-95"
                   >
                     {timerState.isPaused ? (
                       <Play className="h-4 w-4 fill-current" />
@@ -233,7 +230,7 @@ export function RestTimerBar({
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="rounded-xl bg-[#F5BA42] px-3 py-1.5 font-mono text-xs font-black text-stone-950 uppercase shadow-md transition hover:bg-[#e5ad3a] active:scale-95"
+                  className="rounded-xl bg-[#C4F124] px-3 py-1.5 font-mono text-xs font-black text-black uppercase shadow-md shadow-[#C4F124]/25 transition hover:bg-[#b0db1f] active:scale-95"
                 >
                   На подход!
                 </button>
@@ -246,7 +243,7 @@ export function RestTimerBar({
                   hapticImpact('light');
                   setIsMinimized(true);
                 }}
-                className="flex h-8 w-7 items-center justify-center rounded-xl text-[#A8A199] hover:text-white"
+                className="flex h-8 w-7 items-center justify-center rounded-xl text-[#8F90A6] hover:text-white"
                 title="Свернуть"
               >
                 <ChevronDown className="h-4 w-4" />
@@ -256,7 +253,7 @@ export function RestTimerBar({
               <button
                 type="button"
                 onClick={handleClose}
-                className="flex h-8 w-7 items-center justify-center rounded-xl text-[#A8A199] hover:text-rose-400"
+                className="flex h-8 w-7 items-center justify-center rounded-xl text-[#8F90A6] hover:text-rose-400"
                 title="Закрыть таймер"
               >
                 <X className="h-4 w-4" />

@@ -4,7 +4,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   Dumbbell,
   Calendar,
-  Flame,
   ChevronDown,
   ChevronUp,
   Trash2,
@@ -163,23 +162,23 @@ export function WorkoutHistory({ refreshTrigger }: { refreshTrigger?: number }) 
   if (isLoading && workouts.length === 0) {
     return (
       <div className="space-y-3">
-        <div className="h-20 animate-pulse rounded-3xl border border-white/5 bg-[#24201E]" />
-        <div className="h-28 animate-pulse rounded-3xl border border-white/5 bg-[#24201E]" />
+        <div className="h-20 animate-pulse rounded-3xl border border-white/5 bg-[#16161C]" />
+        <div className="h-28 animate-pulse rounded-3xl border border-white/5 bg-[#16161C]" />
       </div>
     );
   }
 
   if (workouts.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-3xl border border-white/5 bg-gradient-to-b from-[#26211F] to-[#1D1918] p-8 text-center shadow-xl shadow-black/40">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F5BA42]/10 text-[#F5BA42]">
+      <div className="flex flex-col items-center justify-center rounded-3xl border border-white/5 bg-[#16161C] p-8 text-center shadow-xl shadow-black/40">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#C4F124]/10 text-[#C4F124]">
           <Dumbbell className="h-6 w-6" />
         </div>
-        <h3 className="mt-3 text-sm font-bold text-[#FAF7F5] uppercase">
+        <h3 className="mt-3 text-sm font-black text-white uppercase tracking-wider">
           История тренировок пуста
         </h3>
-        <p className="mt-1 max-w-xs text-xs text-[#A8A199]">
-          Заполните форму выше и нажмите «Сохранить тренировку» — все ваши сплиты будут надежно храниться здесь.
+        <p className="mt-1 max-w-xs text-xs text-[#8F90A6]">
+          Заполните форму во вкладке «Запись» и сохраните тренировку — все ваши сплиты будут сохранены здесь.
         </p>
       </div>
     );
@@ -187,17 +186,17 @@ export function WorkoutHistory({ refreshTrigger }: { refreshTrigger?: number }) 
 
   return (
     <div className="space-y-4">
-      {/* Сводная плашка истории */}
-      <div className="flex items-center justify-between rounded-3xl border border-white/5 bg-gradient-to-r from-[#26211F] to-[#1D1918] p-4 shadow-xl shadow-black/40">
+      {/* Сводная плашка истории в стиле Cyber Lime */}
+      <div className="flex items-center justify-between rounded-3xl border border-white/5 bg-[#16161C] p-4 shadow-xl shadow-black/40">
         <div>
-          <span className="text-[10px] font-black uppercase tracking-wider text-[#A8A199]">
-            Всего тренировок: <strong className="text-[#FAF7F5]">{workouts.length}</strong>
+          <span className="text-[10px] font-black uppercase tracking-wider text-[#8F90A6]">
+            Всего тренировок: <strong className="text-white">{workouts.length}</strong>
           </span>
           <div className="mt-0.5 flex items-baseline gap-1.5">
-            <span className="font-mono text-2xl font-black text-[#FAF7F5] tabular-nums">
+            <span className="font-mono text-2xl font-black text-white tabular-nums">
               {totalAllTonnage.toLocaleString('ru-RU')}
             </span>
-            <span className="text-xs font-bold text-[#F5BA42]">КГ ТОННАЖ</span>
+            <span className="text-xs font-black text-[#C4F124]">КГ ТОННАЖ</span>
           </div>
         </div>
 
@@ -208,7 +207,7 @@ export function WorkoutHistory({ refreshTrigger }: { refreshTrigger?: number }) 
             void fetchHistory();
           }}
           aria-label="Обновить историю"
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-[#141211] text-[#A8A199] transition hover:text-[#F5BA42] active:scale-95"
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-[#1C1C24] text-[#8F90A6] transition hover:text-[#C4F124] active:scale-95"
         >
           <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
         </button>
@@ -229,7 +228,7 @@ export function WorkoutHistory({ refreshTrigger }: { refreshTrigger?: number }) 
           return (
             <div
               key={w.id}
-              className="overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-b from-[#26211F] to-[#1D1918] shadow-xl shadow-black/40 transition hover:border-white/10"
+              className="overflow-hidden rounded-3xl border border-white/5 bg-[#16161C] shadow-xl shadow-black/40 transition hover:border-white/10"
             >
               <div
                 onClick={() => {
@@ -240,28 +239,28 @@ export function WorkoutHistory({ refreshTrigger }: { refreshTrigger?: number }) 
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[#F5BA42] px-2 py-0.5 text-[9px] font-black tracking-wider text-stone-950 uppercase">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#C4F124] px-2 py-0.5 text-[9px] font-black tracking-wider text-black uppercase">
                       <Sparkles className="h-2.5 w-2.5" />
                       {w.title}
                     </span>
-                    <span className="flex items-center gap-1 text-[11px] font-medium text-[#A8A199]">
+                    <span className="flex items-center gap-1 text-[11px] font-medium text-[#8F90A6]">
                       <Calendar className="h-3 w-3" />
                       {dateStr}
                     </span>
                   </div>
 
                   <div className="mt-2 flex items-baseline gap-2">
-                    <span className="font-mono text-xl font-black text-[#FAF7F5] tabular-nums">
+                    <span className="font-mono text-xl font-black text-white tabular-nums">
                       {Number(w.total_tonnage).toLocaleString('ru-RU')}
                     </span>
-                    <span className="text-xs font-bold text-[#F5BA42]">КГ</span>
+                    <span className="text-xs font-black text-[#C4F124]">КГ</span>
                     {w.workout_sets && w.workout_sets.length > 0 && (
-                      <span className="text-xs text-[#A8A199]">
+                      <span className="text-xs text-[#8F90A6]">
                         · {w.workout_sets.length} подх.
                       </span>
                     )}
                     {w.photo_urls && w.photo_urls.length > 0 && (
-                      <span className="inline-flex items-center gap-1 text-xs text-[#F5BA42]">
+                      <span className="inline-flex items-center gap-1 text-xs text-[#C4F124]">
                         · <Camera className="h-3 w-3" /> {w.photo_urls.length}
                       </span>
                     )}
@@ -276,12 +275,12 @@ export function WorkoutHistory({ refreshTrigger }: { refreshTrigger?: number }) 
                       void handleDelete(w.id);
                     }}
                     aria-label="Удалить"
-                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/5 text-[#A8A199] transition hover:bg-rose-950/40 hover:text-rose-400 active:scale-95"
+                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/5 text-[#8F90A6] transition hover:bg-rose-950/40 hover:text-rose-400 active:scale-95"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
 
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#141211] text-[#A8A199]">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#101014] text-[#8F90A6]">
                     {isExpanded ? (
                       <ChevronUp className="h-4 w-4" />
                     ) : (
@@ -293,9 +292,9 @@ export function WorkoutHistory({ refreshTrigger }: { refreshTrigger?: number }) 
 
               {/* Раскрывающийся подробный список упражнений и фото */}
               {isExpanded && (
-                <div className="border-t border-white/5 bg-[#141211]/60 p-4.5 space-y-3">
+                <div className="border-t border-white/5 bg-[#101014]/60 p-4.5 space-y-3">
                   {w.notes && (
-                    <p className="rounded-2xl border border-white/5 bg-[#1E1A18] p-2.5 text-xs text-[#FAF7F5] italic">
+                    <p className="rounded-2xl border border-white/5 bg-[#1C1C24] p-2.5 text-xs text-white italic">
                       {w.notes}
                     </p>
                   )}
@@ -303,21 +302,20 @@ export function WorkoutHistory({ refreshTrigger }: { refreshTrigger?: number }) 
                   {/* Список упражнений */}
                   {w.workout_sets && w.workout_sets.length > 0 && (
                     <div className="space-y-1.5">
-                      <p className="text-[10px] font-black uppercase tracking-wider text-[#A8A199]">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-[#8F90A6]">
                         Упражнения:
                       </p>
                       <div className="space-y-1">
                         {w.workout_sets.map((s, idx) => (
                           <div
                             key={s.id || idx}
-                            className="flex items-center justify-between rounded-xl border border-white/5 bg-[#1E1A18] px-3 py-1.5 text-xs"
+                            className="flex items-center justify-between rounded-xl border border-white/5 bg-[#1C1C24] px-3 py-1.5 text-xs"
                           >
-                            <span className="font-medium text-[#FAF7F5]">
+                            <span className="font-medium text-white">
                               {s.exercise_name}
                             </span>
-                            <span className="font-mono text-[11px] font-bold text-[#F5BA42] tabular-nums">
-                              {s.weight_kg} кг × {s.sets_count} подх. × {s.reps} повт. (
-                              {s.tonnage} кг)
+                            <span className="font-mono text-[11px] font-black text-[#C4F124] tabular-nums">
+                              {s.weight_kg} кг × {s.sets_count} подх. × {s.reps} повт. ({s.tonnage} кг)
                             </span>
                           </div>
                         ))}
@@ -328,7 +326,7 @@ export function WorkoutHistory({ refreshTrigger }: { refreshTrigger?: number }) 
                   {/* Галерея фото формы */}
                   {w.photo_urls && w.photo_urls.length > 0 && (
                     <div className="space-y-1.5 pt-1">
-                      <p className="text-[10px] font-black uppercase tracking-wider text-[#A8A199]">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-[#8F90A6]">
                         Фото прогресса:
                       </p>
                       <div className="grid grid-cols-3 gap-2">

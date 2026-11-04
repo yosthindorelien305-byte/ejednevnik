@@ -73,25 +73,25 @@ export function BodyProfileModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-[#26211F] via-[#1E1A18] to-[#141211] p-6 shadow-2xl shadow-black/80">
-        {/* Декоративное фоновое свечение */}
+      <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-[#16161C] p-6 shadow-2xl shadow-black/80">
+        {/* Декоративное фоновое свечение в стиле Cyber Lime */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -top-12 -right-12 h-36 w-36 rounded-full bg-[#F5BA42]/10 blur-2xl"
+          className="pointer-events-none absolute -top-12 -right-12 h-36 w-36 rounded-full bg-[#C4F124]/10 blur-2xl"
         />
 
         {/* Заголовок */}
         <div className="relative flex items-center justify-between pb-4 border-b border-white/5">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#F5BA42]/15 text-[#F5BA42] ring-1 ring-[#F5BA42]/25">
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#C4F124]/15 text-[#C4F124] ring-1 ring-[#C4F124]/25">
               <UserCheck className="h-5 w-5" />
             </span>
             <div>
-              <h3 className="text-sm font-black tracking-wider text-[#FAF7F5] uppercase">
+              <h3 className="text-sm font-black tracking-wider text-white uppercase">
                 Параметры тела & Supabase
               </h3>
-              <p className="text-[11px] text-[#A8A199]">
-                Сохраняются в базу данных и профиль аккаунта
+              <p className="text-[11px] text-[#8F90A6]">
+                Синхронизируются с базой данных профиля
               </p>
             </div>
           </div>
@@ -102,7 +102,7 @@ export function BodyProfileModal({
               hapticImpact('light');
               onClose();
             }}
-            className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/5 text-[#A8A199] hover:text-white disabled:opacity-40"
+            className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/5 text-[#8F90A6] hover:text-white disabled:opacity-40"
           >
             <X className="h-4 w-4" />
           </button>
@@ -112,8 +112,8 @@ export function BodyProfileModal({
           {/* Поля: Вес и Рост */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold text-[#A8A199] uppercase">
-                <Scale className="h-3.5 w-3.5 text-[#F5BA42]" />
+              <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold text-[#8F90A6] uppercase">
+                <Scale className="h-3.5 w-3.5 text-[#C4F124]" />
                 Вес тела (кг)
               </label>
               <input
@@ -127,13 +127,13 @@ export function BodyProfileModal({
                 value={weightKg}
                 onChange={(e) => setWeightKg(e.target.value)}
                 placeholder="75.0"
-                className="w-full rounded-2xl border border-white/10 bg-[#141211] px-3.5 py-2.5 text-center font-mono text-base font-bold text-[#FAF7F5] tabular-nums focus:border-[#F5BA42] focus:outline-none disabled:opacity-50"
+                className="w-full rounded-2xl border border-white/10 bg-[#101014] px-3.5 py-2.5 text-center font-mono text-base font-black text-[#C4F124] tabular-nums focus:border-[#C4F124] focus:outline-none disabled:opacity-50"
               />
             </div>
 
             <div>
-              <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold text-[#A8A199] uppercase">
-                <Ruler className="h-3.5 w-3.5 text-[#F5BA42]" />
+              <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold text-[#8F90A6] uppercase">
+                <Ruler className="h-3.5 w-3.5 text-[#C4F124]" />
                 Рост (см)
               </label>
               <input
@@ -147,19 +147,19 @@ export function BodyProfileModal({
                 value={heightCm}
                 onChange={(e) => setHeightCm(e.target.value)}
                 placeholder="178"
-                className="w-full rounded-2xl border border-white/10 bg-[#141211] px-3.5 py-2.5 text-center font-mono text-base font-bold text-[#FAF7F5] tabular-nums focus:border-[#F5BA42] focus:outline-none disabled:opacity-50"
+                className="w-full rounded-2xl border border-white/10 bg-[#101014] px-3.5 py-2.5 text-center font-mono text-base font-black text-white tabular-nums focus:border-[#C4F124] focus:outline-none disabled:opacity-50"
               />
             </div>
           </div>
 
           {/* Карточка расчета ИМТ */}
           {bmiInfo.bmi > 0 && (
-            <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-[#141211]/80 px-4 py-2.5">
-              <span className="text-[11px] font-bold text-[#A8A199] uppercase">
+            <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-[#101014] px-4 py-2.5">
+              <span className="text-[11px] font-bold text-[#8F90A6] uppercase">
                 Индекс массы тела (ИМТ):
               </span>
               <div className="flex items-baseline gap-2">
-                <span className="font-mono text-sm font-black text-[#FAF7F5] tabular-nums">
+                <span className="font-mono text-sm font-black text-white tabular-nums">
                   {bmiInfo.bmi}
                 </span>
                 <span className={`text-[11px] font-bold ${bmiInfo.colorClass}`}>
@@ -172,11 +172,11 @@ export function BodyProfileModal({
           {/* Настройка таймера отдыха по умолчанию */}
           <div className="space-y-2 pt-2 border-t border-white/5">
             <div className="flex items-center justify-between">
-              <label className="flex items-center gap-1.5 text-[11px] font-bold text-[#A8A199] uppercase">
-                <Timer className="h-3.5 w-3.5 text-[#F5BA42]" />
+              <label className="flex items-center gap-1.5 text-[11px] font-bold text-[#8F90A6] uppercase">
+                <Timer className="h-3.5 w-3.5 text-[#8A4FFF]" />
                 Таймер отдыха по умолчанию
               </label>
-              <span className="font-mono text-xs font-bold text-[#F5BA42]">
+              <span className="font-mono text-xs font-black text-[#8A4FFF]">
                 {customRestInput} сек ({Math.floor(parseInt(customRestInput || '0') / 60)}м {parseInt(customRestInput || '0') % 60}с)
               </span>
             </div>
@@ -193,10 +193,10 @@ export function BodyProfileModal({
                     setDefaultRestSeconds(sec);
                     setCustomRestInput(String(sec));
                   }}
-                  className={`rounded-xl py-1.5 font-mono text-xs font-bold transition active:scale-95 disabled:opacity-50 ${
+                  className={`rounded-xl py-1.5 font-mono text-xs font-black transition active:scale-95 disabled:opacity-50 ${
                     parseInt(customRestInput) === sec
-                      ? 'bg-[#F5BA42] text-stone-950 shadow-md'
-                      : 'border border-white/5 bg-[#141211] text-[#A8A199] hover:text-[#FAF7F5]'
+                      ? 'bg-[#C4F124] text-black shadow-md shadow-[#C4F124]/20'
+                      : 'border border-white/5 bg-[#1C1C24] text-[#8F90A6] hover:text-white'
                   }`}
                 >
                   {sec}с
@@ -205,7 +205,7 @@ export function BodyProfileModal({
             </div>
 
             <div className="flex items-center gap-2 pt-1">
-              <span className="text-[10px] text-[#A8A199]">Или точное число секунд:</span>
+              <span className="text-[10px] text-[#8F90A6]">Или точное число секунд:</span>
               <input
                 type="number"
                 min="10"
@@ -217,16 +217,16 @@ export function BodyProfileModal({
                   setCustomRestInput(e.target.value);
                   setDefaultRestSeconds(parseInt(e.target.value) || 90);
                 }}
-                className="w-20 rounded-xl border border-white/10 bg-[#141211] px-2 py-1 text-center font-mono text-xs font-bold text-[#FAF7F5] focus:border-[#F5BA42] focus:outline-none disabled:opacity-50"
+                className="w-20 rounded-xl border border-white/10 bg-[#101014] px-2 py-1 text-center font-mono text-xs font-black text-[#C4F124] focus:border-[#C4F124] focus:outline-none disabled:opacity-50"
               />
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[#F5BA42]/20 bg-[#F5BA42]/5 p-3 text-[11px] text-[#A8A199]">
+          <div className="rounded-2xl border border-[#C4F124]/20 bg-[#C4F124]/5 p-3 text-[11px] text-[#8F90A6]">
             <p className="flex items-start gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 shrink-0 text-[#F5BA42] mt-0.5" />
+              <Sparkles className="h-3.5 w-3.5 shrink-0 text-[#C4F124] mt-0.5" />
               <span>
-                Параметры сохраняются в базу данных Supabase и локальное хранилище. При перезаходе или смене устройства они будут восстановлены автоматически.
+                Параметры сохраняются в базу данных Supabase и локальный кэш. Они восстанавливаются на любом вашем устройстве.
               </span>
             </p>
           </div>
@@ -235,16 +235,16 @@ export function BodyProfileModal({
           <button
             type="submit"
             disabled={isSaving}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#F5BA42] py-3.5 text-xs font-black tracking-wider text-stone-950 uppercase shadow-lg shadow-[#F5BA42]/20 transition hover:bg-[#e5ad3a] active:scale-[0.98] disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#C4F124] py-3.5 text-xs font-black tracking-wider text-black uppercase shadow-lg shadow-[#C4F124]/20 transition hover:bg-[#b0db1f] active:scale-[0.98] disabled:opacity-60"
           >
             {isSaving ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin text-stone-950" />
+                <Loader2 className="h-4 w-4 animate-spin text-black" />
                 <span>Сохранение в Supabase...</span>
               </>
             ) : (
               <>
-                <Check className="h-4 w-4" strokeWidth={3} />
+                <Check className="h-4 w-4 stroke-[3]" />
                 <span>Сохранить параметры тела</span>
               </>
             )}

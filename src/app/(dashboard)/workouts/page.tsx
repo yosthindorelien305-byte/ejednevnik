@@ -23,30 +23,30 @@ export default function WorkoutsPage() {
       <header className="px-1">
         <div className="flex items-center justify-between">
           <div>
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#F5BA42] px-2.5 py-0.5 text-[10px] font-black tracking-wider text-stone-950 uppercase">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#C4F124] px-2.5 py-0.5 text-[10px] font-black tracking-wider text-black uppercase">
               <Dumbbell className="h-3 w-3" />
               WORKOUT TRACKER
             </span>
-            <h1 className="mt-1 text-2xl font-black tracking-tight text-[#FAF7F5] uppercase">
+            <h1 className="mt-1 text-2xl font-black tracking-tight text-[#FFFFFF] uppercase">
               Тренировки
             </h1>
           </div>
 
-          {/* Переключатель вкладок «Запись» / «История» */}
-          <div className="inline-flex rounded-2xl border border-white/5 bg-[#1E1A18] p-1 shadow-inner">
+          {/* Переключатель вкладок «Запись» / «История» в стиле Cyber Lime */}
+          <div className="inline-flex rounded-2xl border border-white/5 bg-[#16161C] p-1 shadow-inner">
             <button
               type="button"
               onClick={() => {
                 hapticImpact('light');
                 setActiveTab('create');
               }}
-              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition active:scale-95 ${
+              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-black transition active:scale-95 ${
                 activeTab === 'create'
-                  ? 'bg-[#F5BA42] text-stone-950 shadow-md shadow-[#F5BA42]/15'
-                  : 'text-[#A8A199] hover:text-[#FAF7F5]'
+                  ? 'bg-[#C4F124] text-black shadow-md shadow-[#C4F124]/20'
+                  : 'text-[#8F90A6] hover:text-[#FFFFFF]'
               }`}
             >
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
               Запись
             </button>
             <button
@@ -55,20 +55,20 @@ export default function WorkoutsPage() {
                 hapticImpact('light');
                 setActiveTab('history');
               }}
-              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition active:scale-95 ${
+              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-black transition active:scale-95 ${
                 activeTab === 'history'
-                  ? 'bg-[#F5BA42] text-stone-950 shadow-md shadow-[#F5BA42]/15'
-                  : 'text-[#A8A199] hover:text-[#FAF7F5]'
+                  ? 'bg-[#C4F124] text-black shadow-md shadow-[#C4F124]/20'
+                  : 'text-[#8F90A6] hover:text-[#FFFFFF]'
               }`}
             >
-              <History className="h-3.5 w-3.5" />
+              <History className="h-3.5 w-3.5 stroke-[2.5]" />
               История
             </button>
           </div>
         </div>
-        <p className="mt-1 text-xs text-[#A8A199]">
+        <p className="mt-1 text-xs text-[#8F90A6]">
           {activeTab === 'create'
-            ? 'Добавляйте рабочие подходы, отслеживайте тоннаж и фото формы'
+            ? 'Добавляйте рабочие сеты, фиксируйте тоннаж и запускайте таймер отдыха'
             : 'Все ранее сохраненные тренировки, упражнения и фото прогресса'}
         </p>
       </header>

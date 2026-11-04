@@ -709,44 +709,45 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 pb-20">
-      {/* 1. ШАПКА: SUMMARY-БЛОК В СТИЛЕ FITFUSION DARK LUXURY */}
-      <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-br from-[#26211F] via-[#201C1A] to-[#141211] p-5 shadow-2xl shadow-black/60">
+    <form onSubmit={handleSubmit} className="space-y-4 pb-24">
+      {/* 1. ШАПКА: СВОДНЫЙ БЛОК В СТИЛЕ CYBER LIME & DARK GRAPHITE */}
+      <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-[#16161C] p-5 shadow-2xl shadow-black/80">
+        {/* Фоновое неоновое свечение */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -top-16 -right-16 h-44 w-44 rounded-full bg-[#F5BA42]/10 blur-3xl"
+          className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-[#C4F124]/10 blur-3xl"
         />
 
         <div className="relative flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#F5BA42] px-2.5 py-0.5 text-[10px] font-black tracking-wider text-stone-950 uppercase shadow-sm">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#C4F124] px-2.5 py-0.5 text-[10px] font-black tracking-wider text-black uppercase shadow-sm">
                 <Sparkles className="h-3 w-3" />
                 {title || 'СИЛОВОЙ СПЛИТ'}
               </span>
-              <span className="text-[11px] font-semibold tracking-wider text-[#A8A199] uppercase">
+              <span className="text-[11px] font-semibold tracking-wider text-[#8F90A6] uppercase">
                 {WORKOUT_TYPE_LABELS[workoutType]}
               </span>
             </div>
 
             <div className="mt-2.5 flex items-baseline gap-2">
-              <span className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-[#FAF7F5] tabular-nums">
+              <span className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-white tabular-nums">
                 {stats.totalTonnage.toLocaleString('ru-RU')}
               </span>
-              <span className="text-base font-bold text-[#F5BA42]">КГ</span>
+              <span className="text-base font-black text-[#C4F124]">КГ</span>
             </div>
-            <p className="text-[11px] font-medium tracking-wide text-[#A8A199] uppercase">
+            <p className="text-[11px] font-medium tracking-wide text-[#8F90A6] uppercase">
               Суммарный тоннаж сессии
             </p>
           </div>
 
-          {/* Мини-график интенсивности */}
+          {/* График динамики интенсивности сессии */}
           <div className="flex flex-col items-end gap-1">
             <div className="flex h-10 w-28 items-center justify-end">
               <svg className="h-8 w-28 overflow-visible" viewBox="0 0 120 32">
                 <polyline
                   fill="none"
-                  stroke="#F5BA42"
+                  stroke="#C4F124"
                   strokeWidth="2.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -754,36 +755,36 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                 />
               </svg>
             </div>
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#F5BA42]">
-              <TrendingUp className="h-3 w-3" />
+            <span className="inline-flex items-center gap-1 text-[10px] font-black text-[#C4F124]">
+              <TrendingUp className="h-3 w-3 stroke-[2.5]" />
               Интенсивность
             </span>
           </div>
         </div>
 
-        {/* Метрики сессии */}
+        {/* Метрики сессии: Упражнения, Подходы, Свой вес */}
         <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-3.5">
-          <div className="rounded-2xl border border-white/5 bg-[#141211]/60 px-2.5 py-2">
-            <span className="block text-[10px] font-bold text-[#A8A199] uppercase">
+          <div className="rounded-2xl border border-white/5 bg-[#101014] px-2.5 py-2">
+            <span className="block text-[10px] font-bold text-[#8F90A6] uppercase">
               Упражнений
             </span>
-            <span className="font-mono text-base font-bold text-[#FAF7F5] tabular-nums">
+            <span className="font-mono text-base font-black text-white tabular-nums">
               {exercises.length}
             </span>
           </div>
-          <div className="rounded-2xl border border-white/5 bg-[#141211]/60 px-2.5 py-2">
-            <span className="block text-[10px] font-bold text-[#A8A199] uppercase">
+          <div className="rounded-2xl border border-white/5 bg-[#101014] px-2.5 py-2">
+            <span className="block text-[10px] font-bold text-[#8F90A6] uppercase">
               Подходов
             </span>
-            <span className="font-mono text-base font-bold text-[#FAF7F5] tabular-nums">
+            <span className="font-mono text-base font-black text-white tabular-nums">
               {stats.completedSetsCount} / {stats.totalSets}
             </span>
           </div>
-          <div className="rounded-2xl border border-white/5 bg-[#141211]/60 px-2.5 py-2">
-            <span className="block text-[10px] font-bold text-[#A8A199] uppercase">
+          <div className="rounded-2xl border border-white/5 bg-[#101014] px-2.5 py-2">
+            <span className="block text-[10px] font-bold text-[#8F90A6] uppercase">
               Свой вес
             </span>
-            <span className="font-mono text-base font-bold text-[#F5BA42] tabular-nums">
+            <span className="font-mono text-base font-black text-[#C4F124] tabular-nums">
               {currentBodyWeightNum} кг
             </span>
           </div>
@@ -791,18 +792,18 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
       </div>
 
       {/* ПАНЕЛЬ ПАРАМЕТРОВ ТЕЛА И АККАУНТА (ИНТЕРАКТИВНЫЕ ИНПУТЫ: ВЕС, РОСТ, ТАЙМЕР) */}
-      <div className="rounded-3xl border border-white/5 bg-gradient-to-r from-[#24201E] to-[#1E1A18] p-4 shadow-lg shadow-black/40">
+      <div className="rounded-3xl border border-white/5 bg-[#16161C] p-4 shadow-lg shadow-black/40">
         <div className="flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#F5BA42]/15 text-[#F5BA42] ring-1 ring-[#F5BA42]/25">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#C4F124]/15 text-[#C4F124] ring-1 ring-[#C4F124]/25">
               <Scale className="h-4 w-4" />
             </span>
             <div>
-              <span className="text-xs font-black tracking-wider text-[#FAF7F5] uppercase">
-                Профиль тела
+              <span className="text-xs font-black tracking-wider text-white uppercase">
+                Параметры тела
               </span>
-              <span className="ml-2 rounded-md bg-[#F5BA42]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#F5BA42]">
-                Мгновенное автосохранение
+              <span className="ml-2 rounded-md bg-[#C4F124]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#C4F124]">
+                Автосинхронизация
               </span>
             </div>
           </div>
@@ -813,7 +814,7 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
               hapticImpact('light');
               setIsProfileModalOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#141211] px-2.5 py-1 text-[11px] font-bold text-[#F5BA42] transition hover:bg-[#F5BA42]/10 active:scale-95"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#1C1C24] px-2.5 py-1 text-[11px] font-bold text-[#C4F124] transition hover:bg-[#C4F124]/10 active:scale-95"
           >
             <Sliders className="h-3 w-3" />
             <span>Подробнее / ИМТ</span>
@@ -823,8 +824,8 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
         {/* 3 интерактивных поля с прямым вводом прямо на панели */}
         <div className="mt-3 grid grid-cols-3 gap-2 border-t border-white/5 pt-3">
           {/* 1. ВЕС ТЕЛА */}
-          <div className="rounded-2xl border border-white/5 bg-[#141211] p-2 text-center transition focus-within:border-[#F5BA42]">
-            <span className="block text-[10px] font-bold text-[#A8A199] uppercase">
+          <div className="rounded-2xl border border-white/5 bg-[#101014] p-2 text-center transition focus-within:border-[#C4F124]">
+            <span className="block text-[10px] font-bold text-[#8F90A6] uppercase">
               Вес тела
             </span>
             <div className="mt-1 flex items-center justify-center gap-1">
@@ -836,15 +837,15 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                 max="250"
                 value={bodyWeight}
                 onChange={(e) => updateDirectBodyWeight(e.target.value)}
-                className="w-14 bg-transparent text-center font-mono text-base font-black text-[#F5BA42] tabular-nums focus:outline-none"
+                className="w-14 bg-transparent text-center font-mono text-base font-black text-[#C4F124] tabular-nums focus:outline-none"
               />
-              <span className="font-mono text-xs font-bold text-[#A8A199]">кг</span>
+              <span className="font-mono text-xs font-bold text-[#8F90A6]">кг</span>
             </div>
           </div>
 
           {/* 2. РОСТ */}
-          <div className="rounded-2xl border border-white/5 bg-[#141211] p-2 text-center transition focus-within:border-[#F5BA42]">
-            <span className="block text-[10px] font-bold text-[#A8A199] uppercase">
+          <div className="rounded-2xl border border-white/5 bg-[#101014] p-2 text-center transition focus-within:border-[#C4F124]">
+            <span className="block text-[10px] font-bold text-[#8F90A6] uppercase">
               Рост
             </span>
             <div className="mt-1 flex items-center justify-center gap-1">
@@ -856,15 +857,15 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                 max="250"
                 value={userProfile.heightCm || 178}
                 onChange={(e) => updateDirectHeight(e.target.value)}
-                className="w-14 bg-transparent text-center font-mono text-base font-black text-[#FAF7F5] tabular-nums focus:outline-none"
+                className="w-14 bg-transparent text-center font-mono text-base font-black text-white tabular-nums focus:outline-none"
               />
-              <span className="font-mono text-xs font-bold text-[#A8A199]">см</span>
+              <span className="font-mono text-xs font-bold text-[#8F90A6]">см</span>
             </div>
           </div>
 
           {/* 3. ТАЙМЕР ОТДЫХА */}
-          <div className="rounded-2xl border border-white/5 bg-[#141211] p-2 text-center transition focus-within:border-[#F5BA42]">
-            <span className="block text-[10px] font-bold text-[#A8A199] uppercase">
+          <div className="rounded-2xl border border-white/5 bg-[#101014] p-2 text-center transition focus-within:border-[#C4F124]">
+            <span className="block text-[10px] font-bold text-[#8F90A6] uppercase">
               Отдых
             </span>
             <div className="mt-1 flex items-center justify-center gap-1">
@@ -876,24 +877,24 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                 max="600"
                 value={userProfile.defaultRestSeconds || 90}
                 onChange={(e) => updateDirectRest(e.target.value)}
-                className="w-14 bg-transparent text-center font-mono text-base font-black text-[#F5BA42] tabular-nums focus:outline-none"
+                className="w-14 bg-transparent text-center font-mono text-base font-black text-[#C4F124] tabular-nums focus:outline-none"
               />
-              <span className="font-mono text-xs font-bold text-[#A8A199]">сек</span>
+              <span className="font-mono text-xs font-bold text-[#8F90A6]">сек</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* 2. ПАРАМЕТРЫ ТРЕНИРОВКИ */}
-      <section className="space-y-3.5 rounded-3xl border border-white/5 bg-gradient-to-b from-[#26211F] to-[#1D1918] p-4.5 shadow-xl shadow-black/40">
-        <h2 className="flex items-center gap-2 text-xs font-black tracking-wider text-[#FAF7F5] uppercase">
-          <Dumbbell className="h-4 w-4 text-[#F5BA42]" />
+      <section className="space-y-3.5 rounded-3xl border border-white/5 bg-[#16161C] p-4.5 shadow-xl shadow-black/40">
+        <h2 className="flex items-center gap-2 text-xs font-black tracking-wider text-white uppercase">
+          <Dumbbell className="h-4 w-4 text-[#C4F124]" />
           Параметры сплита
         </h2>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-[11px] font-semibold text-[#A8A199] uppercase">
+            <label className="mb-1 block text-[11px] font-semibold text-[#8F90A6] uppercase">
               Дата
             </label>
             <input
@@ -901,21 +902,21 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
               value={workoutDate}
               onChange={(e) => setWorkoutDate(e.target.value)}
               required
-              className="w-full rounded-2xl border border-white/10 bg-[#141211] px-3 py-2.5 text-sm font-medium text-[#FAF7F5] focus:border-[#F5BA42] focus:outline-none"
+              className="w-full rounded-2xl border border-white/10 bg-[#101014] px-3 py-2.5 text-sm font-medium text-white focus:border-[#C4F124] focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-[11px] font-semibold text-[#A8A199] uppercase">
+            <label className="mb-1 block text-[11px] font-semibold text-[#8F90A6] uppercase">
               Тип тренировки
             </label>
             <select
               value={workoutType}
               onChange={(e) => setWorkoutType(e.target.value as WorkoutType)}
-              className="w-full rounded-2xl border border-white/10 bg-[#141211] px-3 py-2.5 text-sm font-medium text-[#FAF7F5] focus:border-[#F5BA42] focus:outline-none"
+              className="w-full rounded-2xl border border-white/10 bg-[#101014] px-3 py-2.5 text-sm font-medium text-white focus:border-[#C4F124] focus:outline-none"
             >
               {(Object.keys(WORKOUT_TYPE_LABELS) as WorkoutType[]).map((key) => (
-                <option key={key} value={key} className="bg-[#1D1918] text-[#FAF7F5]">
+                <option key={key} value={key} className="bg-[#16161C] text-white">
                   {WORKOUT_TYPE_LABELS[key]}
                 </option>
               ))}
@@ -924,15 +925,15 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
         </div>
 
         <div>
-          <label className="mb-1 block text-[11px] font-semibold text-[#A8A199] uppercase">
+          <label className="mb-1 block text-[11px] font-semibold text-[#8F90A6] uppercase">
             Название тренировки
           </label>
           <input
             type="text"
-            placeholder="Например: Тяжелый верх или Грудь + Трицепс"
+            placeholder="Например: Push Day, Спина + Бицепс, Приседания"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-[#141211] px-3.5 py-2.5 text-sm font-medium text-[#FAF7F5] placeholder:text-[#A8A199]/40 focus:border-[#F5BA42] focus:outline-none"
+            className="w-full rounded-2xl border border-white/10 bg-[#101014] px-3.5 py-2.5 text-sm font-medium text-white placeholder:text-[#8F90A6]/40 focus:border-[#C4F124] focus:outline-none"
           />
         </div>
       </section>
@@ -940,10 +941,10 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
       {/* 3. УПРАЖНЕНИЯ И ПОДХОДЫ */}
       <section className="space-y-3.5">
         <div className="flex items-center justify-between px-1">
-          <h2 className="text-xs font-black tracking-wider text-[#FAF7F5] uppercase">
+          <h2 className="text-xs font-black tracking-wider text-white uppercase">
             Упражнения и сеты
           </h2>
-          <span className="rounded-full bg-white/5 px-2.5 py-0.5 font-mono text-[11px] font-bold text-[#F5BA42] ring-1 ring-white/10">
+          <span className="rounded-full bg-white/5 px-2.5 py-0.5 font-mono text-[11px] font-bold text-[#C4F124] ring-1 ring-white/10">
             {exercises.length} {exercises.length === 1 ? 'упражнение' : exercises.length < 5 ? 'упражнения' : 'упражнений'}
           </span>
         </div>
@@ -955,27 +956,27 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
           return (
             <div
               key={exercise.id}
-              className="rounded-3xl border border-white/5 bg-gradient-to-b from-[#26211F] to-[#1D1918] p-4.5 shadow-xl shadow-black/40"
+              className="rounded-3xl border border-white/5 bg-[#16161C] p-4.5 shadow-xl shadow-black/40"
             >
               {/* Шапка упражнения */}
               <div className="flex items-center gap-2.5">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-[#F5BA42]/15 font-mono text-xs font-black text-[#F5BA42] ring-1 ring-[#F5BA42]/25">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-[#C4F124] font-mono text-xs font-black text-black ring-1 ring-[#C4F124]/40">
                   {exIndex + 1}
                 </span>
                 <input
                   type="text"
                   required
-                  placeholder="Название (Жим, Подтягивания, Брусья...)"
+                  placeholder="Название (Жим лежа, Подтягивания, Брусья...)"
                   value={exercise.name}
                   onChange={(e) => updateExerciseName(exercise.id, e.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-[#141211] px-3.5 py-2 text-sm font-bold text-[#FAF7F5] placeholder:text-[#A8A199]/40 focus:border-[#F5BA42] focus:outline-none"
+                  className="w-full rounded-2xl border border-white/10 bg-[#101014] px-3.5 py-2 text-sm font-bold text-white placeholder:text-[#8F90A6]/40 focus:border-[#C4F124] focus:outline-none"
                 />
                 {exercises.length > 1 && (
                   <button
                     type="button"
                     onClick={() => removeExercise(exercise.id)}
                     aria-label="Удалить упражнение"
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 text-[#A8A199] transition hover:bg-rose-950/40 hover:text-rose-400 active:scale-95"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 text-[#8F90A6] transition hover:bg-rose-950/40 hover:text-rose-400 active:scale-95"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -983,14 +984,14 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
               </div>
 
               {/* Переключатель: Учитывать свой вес тела в подходах */}
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/5 bg-[#141211]/80 px-3 py-2.5">
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/5 bg-[#101014] px-3 py-2.5">
                 <button
                   type="button"
                   onClick={() => toggleExerciseBodyweight(exercise.id)}
-                  className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition active:scale-95 ${
+                  className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-black transition active:scale-95 ${
                     exercise.includeBodyweight
-                      ? 'bg-[#F5BA42] text-stone-950 shadow-md shadow-[#F5BA42]/20'
-                      : 'border border-white/10 bg-[#1E1A18] text-[#A8A199] hover:text-[#FAF7F5]'
+                      ? 'bg-[#C4F124] text-black shadow-md shadow-[#C4F124]/20'
+                      : 'border border-white/10 bg-[#1C1C24] text-[#8F90A6] hover:text-white'
                   }`}
                 >
                   <Scale className="h-3.5 w-3.5" />
@@ -1003,8 +1004,8 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
 
                 {exercise.includeBodyweight ? (
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-[#A8A199] uppercase">Базовый вес:</span>
-                    <div className="flex items-center gap-1 rounded-xl border border-[#F5BA42]/30 bg-[#1E1A18] px-2 py-0.5">
+                    <span className="text-[10px] font-bold text-[#8F90A6] uppercase">Базовый вес:</span>
+                    <div className="flex items-center gap-1 rounded-xl border border-[#C4F124]/30 bg-[#1C1C24] px-2 py-0.5">
                       <input
                         type="number"
                         inputMode="decimal"
@@ -1013,20 +1014,20 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                         max="250"
                         value={bodyWeight}
                         onChange={(e) => updateDirectBodyWeight(e.target.value)}
-                        className="w-14 bg-transparent text-center font-mono text-xs font-black text-[#F5BA42] tabular-nums focus:outline-none"
+                        className="w-14 bg-transparent text-center font-mono text-xs font-black text-[#C4F124] tabular-nums focus:outline-none"
                       />
-                      <span className="font-mono text-xs font-bold text-[#F5BA42]">кг</span>
+                      <span className="font-mono text-xs font-bold text-[#C4F124]">кг</span>
                     </div>
                   </div>
                 ) : (
-                  <span className="font-mono text-[10px] text-[#A8A199]">
+                  <span className="font-mono text-[10px] text-[#8F90A6]">
                     Учитывается только вес снаряда
                   </span>
                 )}
               </div>
 
               {/* Заголовки таблицы подходов */}
-              <div className="mt-3.5 grid grid-cols-12 items-center gap-2 px-1 text-[10px] font-bold tracking-wider text-[#A8A199] uppercase">
+              <div className="mt-3.5 grid grid-cols-12 items-center gap-2 px-1 text-[10px] font-bold tracking-wider text-[#8F90A6] uppercase">
                 <span className="col-span-2 text-center">Сет</span>
                 <span className="col-span-4 text-center">
                   {exercise.includeBodyweight ? '+Доп. вес' : 'Вес (кг)'}
@@ -1049,8 +1050,8 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                       key={setItem.id}
                       className={`grid grid-cols-12 items-center gap-2 rounded-2xl border p-1.5 transition-all ${
                         setItem.completed
-                          ? 'border-[#F5BA42]/40 bg-[#141211] ring-1 ring-[#F5BA42]/20'
-                          : 'border-white/5 bg-[#141211]'
+                          ? 'border-[#C4F124]/50 bg-[#101014] ring-1 ring-[#C4F124]/20'
+                          : 'border-white/5 bg-[#101014]'
                       }`}
                     >
                       {/* Кнопка отметки подхода (запускает таймер отдыха) */}
@@ -1070,10 +1071,10 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                               ? 'Подход завершен. Нажмите, чтобы снять отметку'
                               : 'Нажмите, чтобы отметить выполнение и включить таймер отдыха'
                           }
-                          className={`inline-flex h-8 w-full items-center justify-center gap-1 rounded-xl font-mono text-xs font-bold transition active:scale-95 ${
+                          className={`inline-flex h-8 w-full items-center justify-center gap-1 rounded-xl font-mono text-xs font-black transition active:scale-95 ${
                             setItem.completed
-                              ? 'bg-[#F5BA42] text-stone-950 shadow-md shadow-[#F5BA42]/20'
-                              : 'bg-[#24201E] text-[#A8A199] hover:bg-[#F5BA42]/20 hover:text-[#F5BA42]'
+                              ? 'bg-[#C4F124] text-black shadow-md shadow-[#C4F124]/25'
+                              : 'bg-[#1C1C24] text-[#8F90A6] hover:bg-[#C4F124]/20 hover:text-[#C4F124]'
                           }`}
                         >
                           {setItem.completed ? (
@@ -1096,10 +1097,10 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                           onChange={(e) =>
                             updateSet(exercise.id, setItem.id, 'weight', e.target.value)
                           }
-                          className="w-full rounded-xl border border-white/5 bg-[#1E1A18] px-2 py-2 text-center font-mono text-base font-bold text-[#FAF7F5] tabular-nums focus:border-[#F5BA42] focus:outline-none"
+                          className="w-full rounded-xl border border-white/5 bg-[#1C1C24] px-2 py-2 text-center font-mono text-base font-bold text-white tabular-nums focus:border-[#C4F124] focus:outline-none"
                         />
                         {exercise.includeBodyweight && (
-                          <span className="block text-center font-mono text-[9px] text-[#A8A199]">
+                          <span className="block text-center font-mono text-[9px] text-[#8F90A6]">
                             итог: {effectiveWeight} кг
                           </span>
                         )}
@@ -1117,12 +1118,12 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                           onChange={(e) =>
                             updateSet(exercise.id, setItem.id, 'reps', e.target.value)
                           }
-                          className="w-full rounded-xl border border-white/5 bg-[#1E1A18] px-2 py-2 text-center font-mono text-base font-bold text-[#FAF7F5] tabular-nums focus:border-[#F5BA42] focus:outline-none"
+                          className="w-full rounded-xl border border-white/5 bg-[#1C1C24] px-2 py-2 text-center font-mono text-base font-bold text-white tabular-nums focus:border-[#C4F124] focus:outline-none"
                         />
                       </div>
 
                       {/* Тоннаж подхода */}
-                      <div className="col-span-2 text-right font-mono text-xs font-bold text-[#F5BA42] tabular-nums">
+                      <div className="col-span-2 text-right font-mono text-xs font-black text-[#C4F124] tabular-nums">
                         {setVolume}
                       </div>
 
@@ -1133,7 +1134,7 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                           disabled={exercise.sets.length <= 1}
                           onClick={() => removeSet(exercise.id, setItem.id)}
                           aria-label="Удалить подход"
-                          className="flex h-7 w-7 items-center justify-center rounded-lg text-[#A8A199] transition hover:text-rose-400 disabled:opacity-20 active:scale-95"
+                          className="flex h-7 w-7 items-center justify-center rounded-lg text-[#8F90A6] transition hover:text-rose-400 disabled:opacity-20 active:scale-95"
                         >
                           <X className="h-4 w-4" />
                         </button>
@@ -1149,9 +1150,9 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                   <button
                     type="button"
                     onClick={() => addSet(exercise.id)}
-                    className="inline-flex items-center gap-1.5 rounded-2xl border border-white/5 bg-[#24201E] px-3 py-1.5 text-xs font-bold text-[#FAF7F5] transition hover:bg-white/10 active:scale-95"
+                    className="inline-flex items-center gap-1.5 rounded-2xl border border-white/5 bg-[#1C1C24] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-white/10 active:scale-95"
                   >
-                    <Copy className="h-3.5 w-3.5 text-[#F5BA42]" />
+                    <Copy className="h-3.5 w-3.5 text-[#C4F124]" />
                     + Сет
                   </button>
 
@@ -1160,16 +1161,16 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                     onClick={() =>
                       startRestTimer(exercise.name, exercise.sets.length - 1)
                     }
-                    className="inline-flex items-center gap-1.5 rounded-2xl border border-white/5 bg-[#141211] px-3 py-1.5 text-xs font-bold text-[#F5BA42] transition hover:bg-[#F5BA42]/15 active:scale-95"
+                    className="inline-flex items-center gap-1.5 rounded-2xl border border-white/5 bg-[#101014] px-3 py-1.5 text-xs font-bold text-[#8A4FFF] transition hover:bg-[#8A4FFF]/15 active:scale-95"
                   >
-                    <Timer className="h-3.5 w-3.5" />
+                    <Timer className="h-3.5 w-3.5 text-[#8A4FFF]" />
                     Отдых ({userProfile.defaultRestSeconds}с)
                   </button>
                 </div>
 
                 <div className="text-right">
-                  <span className="text-[11px] font-semibold text-[#A8A199]">Тоннаж: </span>
-                  <span className="font-mono text-sm font-black text-[#F5BA42] tabular-nums">
+                  <span className="text-[11px] font-semibold text-[#8F90A6]">Тоннаж: </span>
+                  <span className="font-mono text-sm font-black text-[#C4F124] tabular-nums">
                     {exTonnage.toLocaleString('ru-RU')} кг
                   </span>
                 </div>
@@ -1182,25 +1183,25 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
         <button
           type="button"
           onClick={addExercise}
-          className="group flex w-full items-center justify-center gap-2.5 rounded-2xl border border-dashed border-[#F5BA42]/40 bg-[#1E1A18]/80 py-3.5 text-xs font-black tracking-wider text-[#F5BA42] uppercase shadow-lg shadow-black/30 transition-all hover:border-[#F5BA42] hover:bg-[#24201E] active:scale-[0.98]"
+          className="group flex w-full items-center justify-center gap-2.5 rounded-2xl border border-dashed border-[#C4F124]/40 bg-[#16161C] py-3.5 text-xs font-black tracking-wider text-[#C4F124] uppercase shadow-lg shadow-black/40 transition-all hover:border-[#C4F124] hover:bg-[#1C1C24] active:scale-[0.98]"
         >
-          <span className="flex h-6 w-6 items-center justify-center rounded-xl bg-[#F5BA42]/15 text-[#F5BA42] ring-1 ring-[#F5BA42]/30 transition-transform group-hover:scale-110 group-hover:bg-[#F5BA42] group-hover:text-stone-950">
-            <Plus className="h-4 w-4" strokeWidth={2.5} />
+          <span className="flex h-6 w-6 items-center justify-center rounded-xl bg-[#C4F124]/15 text-[#C4F124] ring-1 ring-[#C4F124]/30 transition-transform group-hover:scale-110 group-hover:bg-[#C4F124] group-hover:text-black">
+            <Plus className="h-4 w-4 stroke-[2.5]" />
           </span>
           <span>+ Добавить упражнение</span>
         </button>
       </section>
 
-      {/* 4. БЛОК ФОТО ФОРМЫ (ПРЕМИАЛЬНЫЙ POLAROID / GALLERY СТИЛЬ) */}
-      <section className="space-y-3.5 rounded-3xl border border-white/5 bg-gradient-to-b from-[#26211F] to-[#1D1918] p-4.5 shadow-xl shadow-black/40">
+      {/* 4. БЛОК ФОТО ФОРМЫ (ПРЕМИАЛЬНЫЙ КАРТОЧНЫЙ СТИЛЬ) */}
+      <section className="space-y-3.5 rounded-3xl border border-white/5 bg-[#16161C] p-4.5 shadow-xl shadow-black/40">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="flex items-center gap-2 text-xs font-black tracking-wider text-[#FAF7F5] uppercase">
-              <Camera className="h-4 w-4 text-[#F5BA42]" />
+            <h2 className="flex items-center gap-2 text-xs font-black tracking-wider text-white uppercase">
+              <Camera className="h-4 w-4 text-[#C4F124]" />
               Фото формы и прогресса
             </h2>
-            <p className="text-[11px] text-[#A8A199]">
-              Приватное шифрованное хранение в облаке
+            <p className="text-[11px] text-[#8F90A6]">
+              Приватное шифрованное хранилище
             </p>
           </div>
 
@@ -1214,7 +1215,7 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
               placeholder="Вес, кг"
               value={bodyWeight}
               onChange={(e) => updateDirectBodyWeight(e.target.value)}
-              className="w-full rounded-2xl border border-white/10 bg-[#141211] px-3 py-1.5 text-center font-mono text-xs font-bold text-[#F5BA42] tabular-nums placeholder:text-[#A8A199]/40 focus:border-[#F5BA42] focus:outline-none"
+              className="w-full rounded-2xl border border-white/10 bg-[#101014] px-3 py-1.5 text-center font-mono text-xs font-black text-[#C4F124] tabular-nums placeholder:text-[#8F90A6]/40 focus:border-[#C4F124] focus:outline-none"
             />
           </div>
         </div>
@@ -1231,16 +1232,16 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="group flex w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-[#141211]/80 py-6 text-xs font-bold text-[#FAF7F5] transition active:scale-[0.99] hover:border-[#F5BA42]/60 hover:bg-[#141211]"
+          className="group flex w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-[#101014] py-6 text-xs font-bold text-white transition active:scale-[0.99] hover:border-[#C4F124]/60 hover:bg-[#16161C]"
         >
-          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F5BA42]/10 text-[#F5BA42] ring-1 ring-[#F5BA42]/25 transition-transform duration-200 group-hover:scale-110">
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#C4F124]/10 text-[#C4F124] ring-1 ring-[#C4F124]/25 transition-transform duration-200 group-hover:scale-110">
             <Camera className="h-5 w-5" strokeWidth={2.2} />
           </span>
-          <span className="uppercase tracking-wider">
-            Снять форму на iPhone или выбрать фото
+          <span className="uppercase tracking-wider font-black">
+            Снять форму или выбрать фото
           </span>
-          <span className="text-[10px] font-medium text-[#A8A199]">
-            Формат галереи Polaroid · мгновенный рендер
+          <span className="text-[10px] font-medium text-[#8F90A6]">
+            Формат карточек прогресса · мгновенное превью
           </span>
         </button>
 
@@ -1249,7 +1250,7 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
             {photos.map((photo) => (
               <div
                 key={photo.id}
-                className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[#141211] p-1.5 shadow-lg"
+                className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[#101014] p-1.5 shadow-lg"
               >
                 <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-black">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1272,7 +1273,7 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                   placeholder="Ракурс / вес..."
                   value={photo.caption}
                   onChange={(e) => updatePhotoCaption(photo.id, e.target.value)}
-                  className="mt-1.5 w-full bg-transparent px-2 py-1 text-center text-[11px] font-medium text-[#FAF7F5] placeholder:text-[#A8A199]/40 focus:outline-none"
+                  className="mt-1.5 w-full bg-transparent px-2 py-1 text-center text-[11px] font-medium text-white placeholder:text-[#8F90A6]/40 focus:outline-none"
                 />
               </div>
             ))}
@@ -1281,13 +1282,13 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
       </section>
 
       {/* 5. САМОЧУВСТВИЕ И ЗАМЕТКИ */}
-      <section className="space-y-3.5 rounded-3xl border border-white/5 bg-gradient-to-b from-[#26211F] to-[#1D1918] p-4.5 shadow-xl shadow-black/40">
+      <section className="space-y-3.5 rounded-3xl border border-white/5 bg-[#16161C] p-4.5 shadow-xl shadow-black/40">
         <div className="flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-xs font-black tracking-wider text-[#FAF7F5] uppercase">
-            <HeartPulse className="h-4 w-4 text-[#F5BA42]" />
-            Самочувствие & Пульс
+          <h2 className="flex items-center gap-2 text-xs font-black tracking-wider text-white uppercase">
+            <HeartPulse className="h-4 w-4 text-[#FF6D3B]" />
+            Самочувствие & Энергия
           </h2>
-          <span className="rounded-full bg-[#F5BA42] px-2.5 py-0.5 font-mono text-xs font-black text-stone-950">
+          <span className="rounded-full bg-[#C4F124] px-2.5 py-0.5 font-mono text-xs font-black text-black">
             {wellbeingRating} / 10
           </span>
         </div>
@@ -1301,37 +1302,37 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
             hapticImpact('light');
             setWellbeingRating(Number(e.target.value));
           }}
-          className="h-2 w-full cursor-pointer accent-[#F5BA42]"
+          className="h-2 w-full cursor-pointer accent-[#C4F124]"
         />
 
         <textarea
           rows={2}
-          placeholder="Сон, уровень энергии, памп, ощущения в связках..."
+          placeholder="Сон, уровень энергии, памп, ощущения в мышцах..."
           value={wellbeingNotes}
           onChange={(e) => setWellbeingNotes(e.target.value)}
-          className="w-full rounded-2xl border border-white/10 bg-[#141211] p-3 text-sm text-[#FAF7F5] placeholder:text-[#A8A199]/40 focus:border-[#F5BA42] focus:outline-none"
+          className="w-full rounded-2xl border border-white/10 bg-[#101014] p-3 text-sm text-white placeholder:text-[#8F90A6]/40 focus:border-[#C4F124] focus:outline-none"
         />
       </section>
 
       {submitError && (
-        <div className="flex items-center gap-2 rounded-2xl border border-rose-900/40 bg-[#4A1521]/60 px-4 py-3 text-sm font-medium text-rose-300">
+        <div className="flex items-center gap-2 rounded-2xl border border-rose-900/40 bg-rose-950/40 px-4 py-3 text-sm font-medium text-rose-300">
           <AlertCircle className="h-5 w-5 shrink-0 text-rose-400" />
           {submitError}
         </div>
       )}
 
       {savedBanner && (
-        <div className="flex items-center gap-2.5 rounded-2xl border border-[#F5BA42]/30 bg-gradient-to-r from-[#26211F] to-[#1D1918] px-4 py-3.5 text-sm font-bold text-[#FAF7F5] shadow-xl shadow-black/60">
-          <CheckCircle2 className="h-5 w-5 shrink-0 text-[#F5BA42]" />
+        <div className="flex items-center gap-2.5 rounded-2xl border border-[#C4F124]/40 bg-[#16161C] px-4 py-3.5 text-sm font-bold text-white shadow-xl shadow-[#C4F124]/10">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-[#C4F124]" />
           <span>Тренировка сохранена и отправлена в Telegram! Тоннаж: {stats.totalTonnage} кг</span>
         </div>
       )}
 
-      {/* 6. ГЛАВНАЯ КНОПКА СОХРАНЕНИЯ: НАСЫЩЕННЫЙ ЗОЛОТОЙ АКЦЕНТ #F5BA42 */}
+      {/* 6. ГЛАВНАЯ КНОПКА СОХРАНЕНИЯ: HIGH-VOLTAGE CYBER LIME #C4F124 */}
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full rounded-2xl bg-[#F5BA42] py-4 text-sm font-black tracking-wider text-stone-950 uppercase shadow-xl shadow-[#F5BA42]/20 transition-all duration-150 hover:bg-[#e5ad3a] active:scale-[0.98] disabled:opacity-60"
+        className="w-full rounded-2xl bg-[#C4F124] py-4 text-sm font-black tracking-wider text-black uppercase shadow-xl shadow-[#C4F124]/25 transition-all duration-150 hover:bg-[#b0db1f] active:scale-[0.98] disabled:opacity-60"
       >
         {isSubmitting ? 'Сохранение в облако...' : 'Сохранить тренировку'}
       </button>
