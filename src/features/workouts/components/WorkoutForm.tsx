@@ -662,14 +662,9 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
           <h2 className="text-xs font-black tracking-wider text-[#FAF7F5] uppercase">
             Упражнения и сеты
           </h2>
-          <button
-            type="button"
-            onClick={addExercise}
-            className="inline-flex items-center gap-1.5 rounded-2xl bg-[#F5BA42] px-3.5 py-1.5 text-xs font-bold text-stone-950 shadow-md shadow-[#F5BA42]/15 transition hover:bg-[#e5ad3a] active:scale-95"
-          >
-            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
-            Упражнение
-          </button>
+          <span className="rounded-full bg-white/5 px-2.5 py-0.5 font-mono text-[11px] font-bold text-[#F5BA42] ring-1 ring-white/10">
+            {exercises.length} {exercises.length === 1 ? 'упражнение' : exercises.length < 5 ? 'упражнения' : 'упражнений'}
+          </span>
         </div>
 
         {exercises.map((exercise, exIndex) => {
@@ -801,6 +796,18 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
             </div>
           );
         })}
+
+        {/* Кнопка добавления упражнения — внизу списка, опускается вниз с каждым новым упражнением */}
+        <button
+          type="button"
+          onClick={addExercise}
+          className="group flex w-full items-center justify-center gap-2.5 rounded-2xl border border-dashed border-[#F5BA42]/40 bg-[#1E1A18]/80 py-3.5 text-xs font-black tracking-wider text-[#F5BA42] uppercase shadow-lg shadow-black/30 transition-all hover:border-[#F5BA42] hover:bg-[#24201E] active:scale-[0.98]"
+        >
+          <span className="flex h-6 w-6 items-center justify-center rounded-xl bg-[#F5BA42]/15 text-[#F5BA42] ring-1 ring-[#F5BA42]/30 transition-transform group-hover:scale-110 group-hover:bg-[#F5BA42] group-hover:text-stone-950">
+            <Plus className="h-4 w-4" strokeWidth={2.5} />
+          </span>
+          <span>+ Добавить упражнение</span>
+        </button>
       </section>
 
       {/* 4. БЛОК ФОТО ФОРМЫ (ПРЕМИАЛЬНЫЙ POLAROID / GALLERY СТИЛЬ) */}
