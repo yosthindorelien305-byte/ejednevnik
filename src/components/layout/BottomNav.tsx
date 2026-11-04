@@ -5,9 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutGrid,
   Dumbbell,
-  BookOpen,
   Utensils,
-  Terminal,
   type LucideIcon,
 } from 'lucide-react';
 import { hapticImpact } from '@/lib/telegram/webapp';
@@ -22,33 +20,21 @@ interface IosTabItem {
 const IOS_TABS: IosTabItem[] = [
   {
     href: '/',
-    shortLabel: 'Сводка',
+    shortLabel: 'Главная',
     fullLabel: 'Главная / Сводка',
     icon: LayoutGrid,
   },
   {
     href: '/workouts',
     shortLabel: 'Тренировки',
-    fullLabel: 'Тренировки',
+    fullLabel: 'Тренировки & Сеты',
     icon: Dumbbell,
-  },
-  {
-    href: '/reading',
-    shortLabel: 'Книги',
-    fullLabel: 'Книги и Коран',
-    icon: BookOpen,
   },
   {
     href: '/nutrition',
     shortLabel: 'Питание',
-    fullLabel: 'Питание',
+    fullLabel: 'Питание & КБЖУ',
     icon: Utensils,
-  },
-  {
-    href: '/vibecoding',
-    shortLabel: 'Кодинг',
-    fullLabel: 'Вайбкодинг',
-    icon: Terminal,
   },
 ];
 
@@ -65,7 +51,7 @@ export function BottomNav() {
       aria-label="Нижняя панель вкладок"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-white/5 bg-[#0B0B0E]/90 pb-safe backdrop-blur-2xl shadow-2xl shadow-black/90"
     >
-      <ul className="mx-auto grid h-[58px] max-w-lg grid-cols-5 items-center px-1">
+      <ul className="mx-auto grid h-[60px] max-w-md grid-cols-3 items-center px-4">
         {IOS_TABS.map((tab) => {
           const Icon = tab.icon;
           const active = isTabActive(tab.href);
@@ -80,26 +66,26 @@ export function BottomNav() {
                 className={`group relative flex h-full flex-col items-center justify-center gap-1 transition-all duration-150 active:scale-95 ${
                   active
                     ? 'text-[#C4F124]'
-                    : 'text-[#8F90A6]/60 hover:text-[#FFFFFF]'
+                    : 'text-[#8F90A6]/60 hover:text-white'
                 }`}
               >
-                {/* Неоново-лаймовый микро-индикатор активной вкладки сверху */}
+                {/* Неоново-лаймовый индикатор активной вкладки */}
                 {active && (
-                  <span className="absolute top-0 h-0.5 w-7 rounded-full bg-[#C4F124] shadow-[0_0_12px_#C4F124]" />
+                  <span className="absolute top-0 h-0.5 w-10 rounded-full bg-[#C4F124] shadow-[0_0_12px_#C4F124]" />
                 )}
 
                 <div className="relative">
                   <Icon
-                    className={`h-[21px] w-[21px] shrink-0 transition-transform duration-200 ${
-                      active ? 'scale-110 drop-shadow-[0_2px_10px_rgba(196,241,36,0.45)] text-[#C4F124]' : 'group-hover:scale-105'
+                    className={`h-[22px] w-[22px] shrink-0 transition-transform duration-200 ${
+                      active ? 'scale-110 drop-shadow-[0_2px_10px_rgba(196,241,36,0.5)] text-[#C4F124]' : 'group-hover:scale-105'
                     }`}
                     strokeWidth={active ? 2.5 : 1.8}
                   />
                 </div>
 
                 <span
-                  className={`max-w-full truncate px-0.5 text-[10px] leading-none tracking-tight ${
-                    active ? 'font-bold text-[#FFFFFF]' : 'font-medium'
+                  className={`font-sans text-[11px] font-black uppercase tracking-wider transition-colors duration-150 ${
+                    active ? 'text-[#C4F124]' : 'text-[#8F90A6]/70'
                   }`}
                 >
                   {tab.shortLabel}

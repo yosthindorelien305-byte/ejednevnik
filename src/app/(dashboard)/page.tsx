@@ -4,58 +4,40 @@ import React from 'react';
 import Link from 'next/link';
 import {
   Dumbbell,
-  BookOpen,
   Utensils,
-  Terminal,
   Flame,
   Clock,
   Play,
   Bell,
   TrendingUp,
-  Sparkles,
-  ChevronRight,
   Target,
   Zap,
+  ArrowRight,
+  ShieldCheck,
 } from 'lucide-react';
 import { hapticImpact } from '@/lib/telegram/webapp';
 
 export default function DashboardHomePage() {
-  const quickActions = [
+  const fitnessModules = [
     {
       href: '/workouts',
       title: 'Тренировки',
-      subtitle: 'Сплиты & сеты',
-      icon: Dumbbell,
+      subtitle: 'Сплиты, рабочие сеты, тоннаж и таймер отдыха',
       badge: 'PRO GYM',
-      color: '#C4F124',
-      bg: 'bg-[#C4F124]/10 text-[#C4F124] border-[#C4F124]/25',
+      icon: Dumbbell,
+      accentColor: '#C4F124',
+      bgGlow: 'bg-[#C4F124]/10 text-[#C4F124] border-[#C4F124]/30',
+      actionText: 'Записать тренировку',
     },
     {
       href: '/nutrition',
-      title: 'Питание',
-      subtitle: 'КБЖУ & рацион',
-      icon: Utensils,
+      title: 'Питание & КБЖУ',
+      subtitle: 'Круговой счетчик калорий, БЖУ и лог рациона',
       badge: 'MACROS',
-      color: '#FF6D3B',
-      bg: 'bg-[#FF6D3B]/10 text-[#FF6D3B] border-[#FF6D3B]/25',
-    },
-    {
-      href: '/reading',
-      title: 'Книги & Коран',
-      subtitle: 'Аяты & чтение',
-      icon: BookOpen,
-      badge: 'SPIRIT',
-      color: '#8A4FFF',
-      bg: 'bg-[#8A4FFF]/10 text-[#8A4FFF] border-[#8A4FFF]/25',
-    },
-    {
-      href: '/vibecoding',
-      title: 'Вайбкодинг',
-      subtitle: 'Спринты & код',
-      icon: Terminal,
-      badge: 'DEV',
-      color: '#00D2FF',
-      bg: 'bg-[#00D2FF]/10 text-[#00D2FF] border-[#00D2FF]/25',
+      icon: Utensils,
+      accentColor: '#FF6D3B',
+      bgGlow: 'bg-[#FF6D3B]/10 text-[#FF6D3B] border-[#FF6D3B]/30',
+      actionText: 'Открыть дневник питания',
     },
   ];
 
@@ -71,7 +53,7 @@ export default function DashboardHomePage() {
   ];
 
   return (
-    <div className="space-y-4 pb-6">
+    <div className="space-y-4 pb-24">
       {/* 1. ШАПКА: ПРИВЕТСТВИЕ И СТАТУС В СТИЛЕ PINTEREST GYM UI */}
       <header className="flex items-center justify-between px-1 pt-1">
         <div>
@@ -79,7 +61,7 @@ export default function DashboardHomePage() {
             <span>Привет, Атлет</span>
             <span>👋</span>
           </div>
-          <h1 className="mt-0.5 text-2xl font-black tracking-tight text-[#FFFFFF]">
+          <h1 className="mt-0.5 text-2xl font-black tracking-tight text-white uppercase">
             Ready to crush your goals?
           </h1>
         </div>
@@ -92,7 +74,7 @@ export default function DashboardHomePage() {
       </header>
 
       {/* 2. КАРТОЧКА НЕДЕЛЬНОГО ПРОГРЕССА (WEEKLY PROGRESS HERO) */}
-      <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-br from-[#1C1C24] via-[#16161C] to-[#111116] p-4.5 shadow-2xl shadow-black/80">
+      <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-[#16161C] p-4.5 shadow-2xl shadow-black/80">
         {/* Неоновый лаймовый декоративный блик */}
         <div
           aria-hidden="true"
@@ -104,7 +86,7 @@ export default function DashboardHomePage() {
             <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#C4F124]/15 text-[#C4F124]">
               <Target className="h-3.5 w-3.5" />
             </span>
-            <span className="text-[11px] font-black uppercase tracking-wider text-[#FFFFFF]">
+            <span className="text-[11px] font-black uppercase tracking-wider text-white">
               Недельный прогресс
             </span>
           </div>
@@ -136,7 +118,7 @@ export default function DashboardHomePage() {
                 />
               </svg>
               <div className="absolute flex flex-col items-center">
-                <span className="font-mono text-xl font-black tracking-tight text-[#FFFFFF] tabular-nums">
+                <span className="font-mono text-xl font-black tracking-tight text-white tabular-nums">
                   75<span className="text-xs text-[#C4F124]">%</span>
                 </span>
                 <span className="text-[9px] font-bold text-[#8F90A6]">
@@ -146,7 +128,7 @@ export default function DashboardHomePage() {
             </div>
           </div>
 
-          {/* Плашки калорий и времени активности */}
+          {/* Плашки калорий и активности */}
           <div className="col-span-7 space-y-2">
             {/* Калории */}
             <div className="flex items-center gap-2.5 rounded-2xl border border-white/5 bg-[#101014] p-2.5">
@@ -158,7 +140,7 @@ export default function DashboardHomePage() {
                   Калории
                 </span>
                 <div className="flex items-baseline gap-1">
-                  <span className="font-mono text-sm font-black text-[#FFFFFF] tabular-nums">
+                  <span className="font-mono text-sm font-black text-white tabular-nums">
                     2,350
                   </span>
                   <span className="font-mono text-[10px] text-[#8F90A6]">/ 3,000</span>
@@ -166,7 +148,7 @@ export default function DashboardHomePage() {
               </div>
             </div>
 
-            {/* Время активности / Фокус */}
+            {/* Время активности */}
             <div className="flex items-center gap-2.5 rounded-2xl border border-white/5 bg-[#101014] p-2.5">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#8A4FFF]/15 text-[#8A4FFF]">
                 <Clock className="h-4 w-4" />
@@ -175,7 +157,7 @@ export default function DashboardHomePage() {
                 <span className="block text-[10px] font-bold uppercase tracking-wider text-[#8F90A6]">
                   Активность
                 </span>
-                <span className="font-mono text-sm font-black text-[#FFFFFF] tabular-nums">
+                <span className="font-mono text-sm font-black text-white tabular-nums">
                   4ч 30м
                 </span>
               </div>
@@ -185,7 +167,7 @@ export default function DashboardHomePage() {
       </div>
 
       {/* 3. КАРТОЧКА СЕГОДНЯШНЕЙ ТРЕНИРОВКИ (TODAY'S WORKOUT HERO CARD) */}
-      <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-b from-[#1C1C24] to-[#121217] p-5 shadow-2xl shadow-black/80">
+      <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-[#16161C] p-5 shadow-2xl shadow-black/80">
         <div className="flex items-center justify-between">
           <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-[#C4F124]">
             <Zap className="h-3 w-3 fill-current" />
@@ -194,14 +176,14 @@ export default function DashboardHomePage() {
           <Link
             href="/workouts"
             onClick={() => hapticImpact('light')}
-            className="text-[11px] font-bold text-[#8F90A6] transition hover:text-[#FFFFFF]"
+            className="text-[11px] font-bold text-[#8F90A6] transition hover:text-white"
           >
             Все тренировки →
           </Link>
         </div>
 
         <div className="mt-3">
-          <h2 className="text-xl font-black tracking-tight text-[#FFFFFF] uppercase">
+          <h2 className="text-xl font-black tracking-tight text-white uppercase">
             Push Day · Силовой сплит
           </h2>
           <p className="mt-0.5 text-xs text-[#8F90A6]">
@@ -211,10 +193,10 @@ export default function DashboardHomePage() {
 
         {/* Метрики сплита */}
         <div className="mt-3.5 flex items-center gap-2">
-          <span className="rounded-xl border border-white/5 bg-[#101014] px-2.5 py-1 font-mono text-[11px] font-bold text-[#FFFFFF]">
+          <span className="rounded-xl border border-white/5 bg-[#101014] px-2.5 py-1 font-mono text-[11px] font-bold text-white">
             8 упражнений
           </span>
-          <span className="rounded-xl border border-white/5 bg-[#101014] px-2.5 py-1 font-mono text-[11px] font-bold text-[#FFFFFF]">
+          <span className="rounded-xl border border-white/5 bg-[#101014] px-2.5 py-1 font-mono text-[11px] font-bold text-white">
             45 мин
           </span>
           <span className="rounded-xl border border-white/5 bg-[#101014] px-2.5 py-1 font-mono text-[11px] font-bold text-[#FF6D3B]">
@@ -233,40 +215,49 @@ export default function DashboardHomePage() {
         </Link>
       </div>
 
-      {/* 4. БЫСТРЫЕ ДЕЙСТВИЯ (QUICK ACTIONS) — СЕТКА 4 МОДУЛЕЙ */}
-      <section className="space-y-2.5">
+      {/* 4. ОСНОВНЫЕ РАЗДЕЛЫ: ТРЕНИРОВКИ И ПИТАНИЕ */}
+      <section className="space-y-3">
         <h2 className="px-1 text-xs font-black uppercase tracking-wider text-[#8F90A6]">
-          Быстрый доступ
+          Основные модули
         </h2>
 
-        <div className="grid grid-cols-2 gap-2.5">
-          {quickActions.map((item) => {
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {fitnessModules.map((item) => {
             const Icon = item.icon;
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={() => hapticImpact('light')}
-                className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-white/5 bg-[#16161C] p-4 shadow-xl shadow-black/60 transition-all duration-200 active:scale-[0.98] hover:border-white/10 hover:bg-[#1A1A22]"
+                className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-white/5 bg-[#16161C] p-4.5 shadow-xl shadow-black/60 transition-all duration-200 active:scale-[0.98] hover:border-white/10 hover:bg-[#1C1C24]"
               >
-                <div className="flex items-center justify-between">
-                  <span
-                    className={`flex h-10 w-10 items-center justify-center rounded-2xl border shadow-inner transition-transform duration-200 group-hover:scale-110 ${item.bg}`}
-                  >
-                    <Icon className="h-5 w-5" strokeWidth={2.2} />
-                  </span>
-                  <span className="rounded-full bg-white/5 px-2 py-0.5 font-mono text-[9px] font-bold text-[#8F90A6]">
-                    {item.badge}
-                  </span>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`flex h-11 w-11 items-center justify-center rounded-2xl border shadow-inner transition-transform duration-200 group-hover:scale-110 ${item.bgGlow}`}
+                    >
+                      <Icon className="h-5 w-5" strokeWidth={2.2} />
+                    </span>
+                    <span className="rounded-full bg-white/5 px-2.5 py-0.5 font-mono text-[10px] font-black text-[#8F90A6]">
+                      {item.badge}
+                    </span>
+                  </div>
+
+                  <div className="mt-3.5">
+                    <h3 className="text-base font-black text-white uppercase tracking-tight">
+                      {item.title}
+                    </h3>
+                    <p className="mt-1 text-xs text-[#8F90A6] line-clamp-2">
+                      {item.subtitle}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="mt-3.5">
-                  <h3 className="text-sm font-black text-[#FFFFFF] uppercase">
-                    {item.title}
-                  </h3>
-                  <p className="mt-0.5 text-[11px] text-[#8F90A6]">
-                    {item.subtitle}
-                  </p>
+                <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3">
+                  <span className="text-xs font-bold text-white group-hover:underline">
+                    {item.actionText}
+                  </span>
+                  <ArrowRight className="h-4 w-4 text-[#8F90A6] transition-transform group-hover:translate-x-1" />
                 </div>
               </Link>
             );
@@ -281,7 +272,7 @@ export default function DashboardHomePage() {
             <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#C4F124]/15 text-[#C4F124]">
               <TrendingUp className="h-3.5 w-3.5" />
             </span>
-            <span className="text-[11px] font-black uppercase tracking-wider text-[#FFFFFF]">
+            <span className="text-[11px] font-black uppercase tracking-wider text-white">
               Частота тренировок
             </span>
           </div>
@@ -308,7 +299,7 @@ export default function DashboardHomePage() {
               />
               <span
                 className={`font-mono text-[10px] font-bold ${
-                  d.completed ? 'text-[#FFFFFF]' : 'text-[#8F90A6]/60'
+                  d.completed ? 'text-white' : 'text-[#8F90A6]/60'
                 }`}
               >
                 {d.day}
