@@ -13,7 +13,7 @@ import {
   Target,
   Zap,
   ArrowRight,
-  ShieldCheck,
+  Check,
 } from 'lucide-react';
 import { hapticImpact } from '@/lib/telegram/webapp';
 
@@ -52,6 +52,16 @@ export default function DashboardHomePage() {
     { day: 'Вс', completed: false, val: 0 },
   ];
 
+  const streakDays = [
+    { label: 'M', checked: true },
+    { label: 'T', checked: true },
+    { label: 'W', checked: true },
+    { label: 'T', checked: true },
+    { label: 'F', checked: true },
+    { label: 'S', checked: true },
+    { label: 'S', checked: true },
+  ];
+
   return (
     <div className="space-y-4 pb-24">
       {/* 1. ШАПКА: ПРИВЕТСТВИЕ И СТАТУС В СТИЛЕ PINTEREST GYM UI */}
@@ -73,9 +83,43 @@ export default function DashboardHomePage() {
         </div>
       </header>
 
-      {/* 2. КАРТОЧКА НЕДЕЛЬНОГО ПРОГРЕССА (WEEKLY PROGRESS HERO) */}
+      {/* 2. СТРИК-КАРТОЧКА СЕРИИ ДНЕЙ КАК НА МАКЕТЕ PINTEREST (CURRENT STREAK: 7 DAYS) */}
+      <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-[#16161C] p-4.5 shadow-xl shadow-black/80">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#C4F124]/15 text-[#C4F124] shadow-inner">
+              <Flame className="h-6 w-6 fill-current animate-pulse" />
+            </span>
+            <div>
+              <span className="block text-[10px] font-black uppercase tracking-wider text-[#8F90A6]">
+                Current Streak
+              </span>
+              <span className="font-mono text-2xl font-black text-white tabular-nums tracking-tight">
+                7 Days
+              </span>
+            </div>
+          </div>
+          <span className="rounded-full bg-[#C4F124]/15 px-3 py-1 font-mono text-xs font-black text-[#C4F124]">
+            В огне 🔥
+          </span>
+        </div>
+
+        <div className="mt-3.5 flex items-center justify-between border-t border-white/5 pt-3 px-1">
+          {streakDays.map((d, idx) => (
+            <div key={idx} className="flex flex-col items-center gap-1.5">
+              <span className="font-mono text-[10px] font-bold text-[#8F90A6]">
+                {d.label}
+              </span>
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#C4F124] text-black shadow-[0_0_8px_rgba(196,241,36,0.5)]">
+                <Check className="h-3.5 w-3.5 stroke-[3]" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 3. КАРТОЧКА НЕДЕЛЬНОГО ПРОГРЕССА (WEEKLY PROGRESS HERO) */}
       <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-[#16161C] p-4.5 shadow-2xl shadow-black/80">
-        {/* Неоновый лаймовый декоративный блик */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-12 -right-12 h-40 w-40 rounded-full bg-[#C4F124]/10 blur-3xl"
@@ -100,14 +144,12 @@ export default function DashboardHomePage() {
           <div className="col-span-5 flex flex-col items-center justify-center">
             <div className="relative flex h-24 w-24 items-center justify-center">
               <svg className="h-full w-full -rotate-90" viewBox="0 0 36 36">
-                {/* Фоновая окружность */}
                 <path
                   className="stroke-white/10"
                   strokeWidth="3.4"
                   fill="none"
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                 />
-                {/* Лаймовая дуга прогресса (75%) */}
                 <path
                   className="stroke-[#C4F124] transition-all duration-1000 ease-out"
                   strokeDasharray="75, 100"
@@ -130,7 +172,6 @@ export default function DashboardHomePage() {
 
           {/* Плашки калорий и активности */}
           <div className="col-span-7 space-y-2">
-            {/* Калории */}
             <div className="flex items-center gap-2.5 rounded-2xl border border-white/5 bg-[#101014] p-2.5">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#FF6D3B]/15 text-[#FF6D3B]">
                 <Flame className="h-4 w-4" />
@@ -148,7 +189,6 @@ export default function DashboardHomePage() {
               </div>
             </div>
 
-            {/* Время активности */}
             <div className="flex items-center gap-2.5 rounded-2xl border border-white/5 bg-[#101014] p-2.5">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#8A4FFF]/15 text-[#8A4FFF]">
                 <Clock className="h-4 w-4" />
@@ -166,7 +206,7 @@ export default function DashboardHomePage() {
         </div>
       </div>
 
-      {/* 3. КАРТОЧКА СЕГОДНЯШНЕЙ ТРЕНИРОВКИ (TODAY'S WORKOUT HERO CARD) */}
+      {/* 4. КАРТОЧКА СЕГОДНЯШНЕЙ ТРЕНИРОВКИ (TODAY'S WORKOUT HERO CARD) */}
       <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-[#16161C] p-5 shadow-2xl shadow-black/80">
         <div className="flex items-center justify-between">
           <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-[#C4F124]">
@@ -194,7 +234,7 @@ export default function DashboardHomePage() {
         {/* Метрики сплита */}
         <div className="mt-3.5 flex items-center gap-2">
           <span className="rounded-xl border border-white/5 bg-[#101014] px-2.5 py-1 font-mono text-[11px] font-bold text-white">
-            8 упражнений
+            4 упражнения
           </span>
           <span className="rounded-xl border border-white/5 bg-[#101014] px-2.5 py-1 font-mono text-[11px] font-bold text-white">
             45 мин
@@ -215,7 +255,7 @@ export default function DashboardHomePage() {
         </Link>
       </div>
 
-      {/* 4. ОСНОВНЫЕ РАЗДЕЛЫ: ТРЕНИРОВКИ И ПИТАНИЕ */}
+      {/* 5. ОСНОВНЫЕ МОДУЛИ: ТРЕНИРОВКИ И ПИТАНИЕ */}
       <section className="space-y-3">
         <h2 className="px-1 text-xs font-black uppercase tracking-wider text-[#8F90A6]">
           Основные модули
@@ -265,7 +305,7 @@ export default function DashboardHomePage() {
         </div>
       </section>
 
-      {/* 5. ЧАСТОТА ТРЕНИРОВОК (WORKOUT FREQUENCY ПО ДНЯМ НЕДЕЛИ) */}
+      {/* 6. ЧАСТОТА ТРЕНИРОВОК (WORKOUT FREQUENCY ПО ДНЯМ НЕДЕЛИ) */}
       <section className="rounded-3xl border border-white/5 bg-[#16161C] p-4 shadow-xl shadow-black/60">
         <div className="flex items-center justify-between pb-3 border-b border-white/5">
           <div className="flex items-center gap-2">
@@ -281,7 +321,6 @@ export default function DashboardHomePage() {
           </span>
         </div>
 
-        {/* Столбики дней недели как в Pinterest UI Kit */}
         <div className="mt-4 grid grid-cols-7 items-end gap-2 px-1">
           {weekDays.map((d, idx) => (
             <div key={idx} className="flex flex-col items-center gap-2">
