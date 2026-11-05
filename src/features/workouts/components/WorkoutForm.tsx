@@ -17,6 +17,8 @@ import {
   Scale,
   Sliders,
   Check,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { hapticImpact, hapticNotification } from '@/lib/telegram/webapp';
@@ -33,6 +35,12 @@ import {
 } from '../lib/bodyProfile';
 import { BodyProfileModal } from './BodyProfileModal';
 import { RestTimerBar, type ActiveRestTimerState } from './RestTimerBar';
+import {
+  type WorkoutSplitKey,
+  WORKOUT_SPLIT_PRESETS,
+} from '../lib/workoutPresets';
+import { MuscleAnatomyCard } from './MuscleAnatomyCard';
+import { MuscleFocusChart } from './MuscleFocusChart';
 
 // Типы тренировки в соответствии с ENUM workout_type в Supabase
 export type WorkoutType =
@@ -103,10 +111,14 @@ const createId = () =>
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2, 11);
 
+const SPLIT_KEYS: WorkoutSplitKey[] = ['all', 'push', 'pull', 'legs', 'core'];
+
 export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormProps) {
   const [workoutDate, setWorkoutDate] = useState<string>('');
   const [workoutType, setWorkoutType] = useState<WorkoutType>('strength');
-  const [title, setTitle] = useState<string>('Тяжелый верх');
+  const [activeSplit, setActiveSplit] = useState<WorkoutSplitKey>('push');
+  const [showMuscleAnalytics, setShowMuscleAnalytics] = useState<boolean>(true);
+  const [title, setTitle] = useState<string>('Push Day · Жимовой день');
   const [wellbeingRating, setWellbeingRating] = useState<number>(8);
   const [wellbeingNotes, setWellbeingNotes] = useState<string>('');
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -127,28 +139,21 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
     isFinished: false,
   });
 
-  // Динамический список упражнений и подходов
-  const [exercises, setExercises] = useState<ExerciseFormItem[]>([
-    {
-      id: 'ex-init-1',
-      name: 'Жим штанги лежа',
-      includeBodyweight: false,
-      sets: [
-        { id: 'set-init-1', weight: 80, reps: 8, completed: false },
-        { id: 'set-init-2', weight: 80, reps: 8, completed: false },
-        { id: 'set-init-3', weight: 80, reps: 7, completed: false },
-      ],
-    },
-    {
-      id: 'ex-init-2',
-      name: 'Подтягивания широким хватом',
-      includeBodyweight: true,
-      sets: [
-        { id: 'set-init-4', weight: 0, reps: 10, completed: false },
-        { id: 'set-init-5', weight: 0, reps: 9, completed: false },
-      ],
-    },
-  ]);
+  // Динамический список упражнений (по умолчанию инициализируется сплитом Push Day как на картинке)
+  const [exercises, setExercises] = useState<ExerciseFormItem[]>(() => {
+    const pushPreset = WORKOUT_SPLIT_PRESETS.push;
+    return pushPreset.exercises.map((pEx) => ({
+      id: createId(),
+      name: pEx.name,
+      includeBodyweight: pEx.includeBodyweight ?? false,
+      sets: pEx.sets.map((s) => ({
+        id: createId(),
+        weight: s.weight,
+        reps: s.reps,
+        completed: false,
+      })),
+    }));
+  });
 
   const [photos, setPhotos] = useState<ProgressPhotoPreview[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -161,14 +166,14 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
     const today = new Intl.DateTimeFormat('en-CA').format(new Date());
     setWorkoutDate(today);
 
-    // 1. Мгновенно подставляем кэш
+    // 1. Мгновенно подставляем кэш профиля
     const loadedProfile = getUserBodyProfile();
     setUserProfile(loadedProfile);
     if (loadedProfile.weightKg) {
       setBodyWeight(String(loadedProfile.weightKg));
     }
 
-    // 2. Асинхронно запрашиваем актуальный профиль из базы данных Supabase
+    // 2. Асинхронно запрашиваем актуальный профиль из Supabase
     void fetchUserBodyProfileAsync().then((remote) => {
       if (remote && remote.weightKg) {
         setUserProfile(remote);
@@ -180,7 +185,42 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
         }));
       }
     });
+
+    // Слушатели событий от нижней навигации
+    const handleAddExEvent = () => addExercise();
+    const handleProfileEvent = () => setIsProfileModalOpen(true);
+
+    window.addEventListener('workout-add-exercise', handleAddExEvent);
+    window.addEventListener('open-body-profile-modal', handleProfileEvent);
+
+    return () => {
+      window.removeEventListener('workout-add-exercise', handleAddExEvent);
+      window.removeEventListener('open-body-profile-modal', handleProfileEvent);
+    };
   }, []);
+
+  // Переключение сплита и автоматическая загрузка выверенного набора упражнений
+  const handleSelectSplit = (splitKey: WorkoutSplitKey) => {
+    hapticImpact('medium');
+    setActiveSplit(splitKey);
+    const preset = WORKOUT_SPLIT_PRESETS[splitKey];
+    if (!preset) return;
+
+    setTitle(preset.title);
+    setExercises(
+      preset.exercises.map((pEx) => ({
+        id: createId(),
+        name: pEx.name,
+        includeBodyweight: pEx.includeBodyweight ?? false,
+        sets: pEx.sets.map((s) => ({
+          id: createId(),
+          weight: s.weight,
+          reps: s.reps,
+          completed: false,
+        })),
+      }))
+    );
+  };
 
   // Числовой вес тела для расчетов
   const currentBodyWeightNum = useMemo(() => {
@@ -228,7 +268,7 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
     };
   }, [exercises, currentBodyWeightNum]);
 
-  // Генерация точек для спарклайн-графика интенсивности тоннажа
+  // Генерация спарклайна интенсивности тоннажа
   const sparklinePoints = useMemo(() => {
     const values = exercises.map((ex) => stats.perExerciseTonnage[ex.id] || 0);
     if (values.length === 0) return '0,20 100,20';
@@ -350,13 +390,13 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
 
   const removeSet = (exerciseId: string, setId: string) => {
     hapticImpact('light');
-    setExercises((prev) =>
-      prev.map((ex) => {
+    setExercises((prev) => {
+      if (prev.find((e) => e.id === exerciseId)?.sets.length === 1) return prev;
+      return prev.map((ex) => {
         if (ex.id !== exerciseId) return ex;
-        if (ex.sets.length <= 1) return ex;
         return { ...ex, sets: ex.sets.filter((s) => s.id !== setId) };
-      })
-    );
+      });
+    });
   };
 
   const updateSet = (
@@ -710,9 +750,37 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 pb-24">
-      {/* 1. ШАПКА: СВОДНЫЙ БЛОК В СТИЛЕ CYBER LIME & DARK GRAPHITE */}
+      {/* 1. ПИЛЮЛИ СПЛИТОВ КАК НА МАКЕТЕ (All, Push, Pull, Legs, Core) */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+        {SPLIT_KEYS.map((key) => {
+          const preset = WORKOUT_SPLIT_PRESETS[key];
+          const isActive = activeSplit === key;
+
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => handleSelectSplit(key)}
+              className={`rounded-2xl px-4 py-2 font-mono text-xs font-black uppercase tracking-wider transition active:scale-95 shrink-0 ${
+                isActive
+                  ? 'bg-[#C4F124] text-black shadow-lg shadow-[#C4F124]/20'
+                  : 'border border-white/5 bg-[#16161C] text-[#8F90A6] hover:text-white'
+              }`}
+            >
+              {preset.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 2. ИНТЕРАКТИВНЫЙ АНАТОМИЧЕСКИЙ МАНЕКЕН ТОРСА (PINTEREST WORKOUT SCREEN) */}
+      <MuscleAnatomyCard
+        activeSplit={activeSplit}
+        onApplyPreset={() => handleSelectSplit(activeSplit)}
+      />
+
+      {/* 3. ШАПКА: СВОДНЫЙ БЛОК ТОННАЖА И ИНТЕНСИВНОСТИ */}
       <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-[#16161C] p-5 shadow-2xl shadow-black/80">
-        {/* Фоновое неоновое свечение */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-[#C4F124]/10 blur-3xl"
@@ -723,7 +791,7 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1 rounded-full bg-[#C4F124] px-2.5 py-0.5 text-[10px] font-black tracking-wider text-black uppercase shadow-sm">
                 <Sparkles className="h-3 w-3" />
-                {title || 'СИЛОВОЙ СПЛИТ'}
+                {title.split('·')[0].trim()}
               </span>
               <span className="text-[11px] font-semibold tracking-wider text-[#8F90A6] uppercase">
                 {WORKOUT_TYPE_LABELS[workoutType]}
@@ -791,7 +859,7 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
         </div>
       </div>
 
-      {/* ПАНЕЛЬ ПАРАМЕТРОВ ТЕЛА И АККАУНТА (ИНТЕРАКТИВНЫЕ ИНПУТЫ: ВЕС, РОСТ, ТАЙМЕР) */}
+      {/* 4. ПАНЕЛЬ ПАРАМЕТРОВ ТЕЛА И АВТОСОХРАНЕНИЯ В SUPABASE */}
       <div className="rounded-3xl border border-white/5 bg-[#16161C] p-4 shadow-lg shadow-black/40">
         <div className="flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex items-center gap-2.5">
@@ -817,7 +885,7 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
             className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#1C1C24] px-2.5 py-1 text-[11px] font-bold text-[#C4F124] transition hover:bg-[#C4F124]/10 active:scale-95"
           >
             <Sliders className="h-3 w-3" />
-            <span>Подробнее / ИМТ</span>
+            <span>ИМТ & Настройки</span>
           </button>
         </div>
 
@@ -885,92 +953,69 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
         </div>
       </div>
 
-      {/* 2. ПАРАМЕТРЫ ТРЕНИРОВКИ */}
-      <section className="space-y-3.5 rounded-3xl border border-white/5 bg-[#16161C] p-4.5 shadow-xl shadow-black/40">
-        <h2 className="flex items-center gap-2 text-xs font-black tracking-wider text-white uppercase">
-          <Dumbbell className="h-4 w-4 text-[#C4F124]" />
-          Параметры сплита
-        </h2>
+      {/* 5. КРУГОВАЯ АНАЛИТИКА «MUSCLE FOCUS» (РАСКРЫВАЮЩАЯСЯ) */}
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => setShowMuscleAnalytics((prev) => !prev)}
+          className="flex w-full items-center justify-between px-1 text-xs font-black uppercase tracking-wider text-[#8F90A6] hover:text-white"
+        >
+          <span>Аналитика мышечного фокуса</span>
+          <span className="flex items-center gap-1 text-[11px] font-bold text-[#C4F124]">
+            {showMuscleAnalytics ? 'Скрыть' : 'Показать'}
+            {showMuscleAnalytics ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          </span>
+        </button>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-[11px] font-semibold text-[#8F90A6] uppercase">
-              Дата
-            </label>
-            <input
-              type="date"
-              value={workoutDate}
-              onChange={(e) => setWorkoutDate(e.target.value)}
-              required
-              className="w-full rounded-2xl border border-white/10 bg-[#101014] px-3 py-2.5 text-sm font-medium text-white focus:border-[#C4F124] focus:outline-none"
-            />
-          </div>
+        {showMuscleAnalytics && <MuscleFocusChart activeSplit={activeSplit} />}
+      </div>
 
-          <div>
-            <label className="mb-1 block text-[11px] font-semibold text-[#8F90A6] uppercase">
-              Тип тренировки
-            </label>
-            <select
-              value={workoutType}
-              onChange={(e) => setWorkoutType(e.target.value as WorkoutType)}
-              className="w-full rounded-2xl border border-white/10 bg-[#101014] px-3 py-2.5 text-sm font-medium text-white focus:border-[#C4F124] focus:outline-none"
-            >
-              {(Object.keys(WORKOUT_TYPE_LABELS) as WorkoutType[]).map((key) => (
-                <option key={key} value={key} className="bg-[#16161C] text-white">
-                  {WORKOUT_TYPE_LABELS[key]}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label className="mb-1 block text-[11px] font-semibold text-[#8F90A6] uppercase">
-            Название тренировки
-          </label>
-          <input
-            type="text"
-            placeholder="Например: Push Day, Спина + Бицепс, Приседания"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-[#101014] px-3.5 py-2.5 text-sm font-medium text-white placeholder:text-[#8F90A6]/40 focus:border-[#C4F124] focus:outline-none"
-          />
-        </div>
-      </section>
-
-      {/* 3. УПРАЖНЕНИЯ И ПОДХОДЫ */}
+      {/* 6. УПРАЖНЕНИЯ И ПОДХОДЫ (EXERCISES LIST) */}
       <section className="space-y-3.5">
         <div className="flex items-center justify-between px-1">
           <h2 className="text-xs font-black tracking-wider text-white uppercase">
-            Упражнения и сеты
+            Exercises ({exercises.length} Exercises)
           </h2>
           <span className="rounded-full bg-white/5 px-2.5 py-0.5 font-mono text-[11px] font-bold text-[#C4F124] ring-1 ring-white/10">
-            {exercises.length} {exercises.length === 1 ? 'упражнение' : exercises.length < 5 ? 'упражнения' : 'упражнений'}
+            {stats.completedSetsCount} из {stats.totalSets} сетов
           </span>
         </div>
 
         {exercises.map((exercise, exIndex) => {
           const exTonnage = stats.perExerciseTonnage[exercise.id] ?? 0;
           const baseWeight = exercise.includeBodyweight ? currentBodyWeightNum : 0;
+          const allCompleted = exercise.sets.length > 0 && exercise.sets.every((s) => s.completed);
 
           return (
             <div
               key={exercise.id}
-              className="rounded-3xl border border-white/5 bg-[#16161C] p-4.5 shadow-xl shadow-black/40"
+              className={`rounded-3xl border p-4.5 shadow-xl shadow-black/40 transition-all ${
+                allCompleted
+                  ? 'border-[#C4F124]/40 bg-[#16161C] ring-1 ring-[#C4F124]/20'
+                  : 'border-white/5 bg-[#16161C]'
+              }`}
             >
               {/* Шапка упражнения */}
               <div className="flex items-center gap-2.5">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-[#C4F124] font-mono text-xs font-black text-black ring-1 ring-[#C4F124]/40">
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl font-mono text-xs font-black ring-1 transition-all ${
+                    allCompleted
+                      ? 'bg-[#C4F124] text-black ring-[#C4F124]'
+                      : 'bg-[#1C1C24] text-[#C4F124] ring-white/10'
+                  }`}
+                >
                   {exIndex + 1}
                 </span>
+
                 <input
                   type="text"
                   required
-                  placeholder="Название (Жим лежа, Подтягивания, Брусья...)"
+                  placeholder="Название упражнения..."
                   value={exercise.name}
                   onChange={(e) => updateExerciseName(exercise.id, e.target.value)}
                   className="w-full rounded-2xl border border-white/10 bg-[#101014] px-3.5 py-2 text-sm font-bold text-white placeholder:text-[#8F90A6]/40 focus:border-[#C4F124] focus:outline-none"
                 />
+
                 {exercises.length > 1 && (
                   <button
                     type="button"
@@ -984,11 +1029,11 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
               </div>
 
               {/* Переключатель: Учитывать свой вес тела в подходах */}
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/5 bg-[#101014] px-3 py-2.5">
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/5 bg-[#101014] px-3 py-2">
                 <button
                   type="button"
                   onClick={() => toggleExerciseBodyweight(exercise.id)}
-                  className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-black transition active:scale-95 ${
+                  className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-black transition active:scale-95 ${
                     exercise.includeBodyweight
                       ? 'bg-[#C4F124] text-black shadow-md shadow-[#C4F124]/20'
                       : 'border border-white/10 bg-[#1C1C24] text-[#8F90A6] hover:text-white'
@@ -997,31 +1042,14 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                   <Scale className="h-3.5 w-3.5" />
                   <span>
                     {exercise.includeBodyweight
-                      ? `Режим «Свой вес»: ВКЛЮЧЕН`
-                      : 'Включить режим «Свой вес»'}
+                      ? `Режим «Свой вес»: ВКЛ (${currentBodyWeightNum} кг)`
+                      : 'Включить «Свой вес»'}
                   </span>
                 </button>
 
-                {exercise.includeBodyweight ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-[#8F90A6] uppercase">Базовый вес:</span>
-                    <div className="flex items-center gap-1 rounded-xl border border-[#C4F124]/30 bg-[#1C1C24] px-2 py-0.5">
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        step="0.5"
-                        min="30"
-                        max="250"
-                        value={bodyWeight}
-                        onChange={(e) => updateDirectBodyWeight(e.target.value)}
-                        className="w-14 bg-transparent text-center font-mono text-xs font-black text-[#C4F124] tabular-nums focus:outline-none"
-                      />
-                      <span className="font-mono text-xs font-bold text-[#C4F124]">кг</span>
-                    </div>
-                  </div>
-                ) : (
-                  <span className="font-mono text-[10px] text-[#8F90A6]">
-                    Учитывается только вес снаряда
+                {exercise.includeBodyweight && (
+                  <span className="font-mono text-[10px] text-[#C4F124]">
+                    Тоннаж считает: (вес тела + вес) × повторы
                   </span>
                 )}
               </div>
@@ -1073,7 +1101,7 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
                           }
                           className={`inline-flex h-8 w-full items-center justify-center gap-1 rounded-xl font-mono text-xs font-black transition active:scale-95 ${
                             setItem.completed
-                              ? 'bg-[#C4F124] text-black shadow-md shadow-[#C4F124]/25'
+                              ? 'bg-[#C4F124] text-black shadow-md shadow-[#C4F124]/30'
                               : 'bg-[#1C1C24] text-[#8F90A6] hover:bg-[#C4F124]/20 hover:text-[#C4F124]'
                           }`}
                         >
@@ -1192,7 +1220,7 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
         </button>
       </section>
 
-      {/* 4. БЛОК ФОТО ФОРМЫ (ПРЕМИАЛЬНЫЙ КАРТОЧНЫЙ СТИЛЬ) */}
+      {/* 7. ФОТО ФОРМЫ И ПРОГРЕССА */}
       <section className="space-y-3.5 rounded-3xl border border-white/5 bg-[#16161C] p-4.5 shadow-xl shadow-black/40">
         <div className="flex items-center justify-between">
           <div>
@@ -1281,7 +1309,7 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
         )}
       </section>
 
-      {/* 5. САМОЧУВСТВИЕ И ЗАМЕТКИ */}
+      {/* 8. САМОЧУВСТВИЕ И ЗАМЕТКИ */}
       <section className="space-y-3.5 rounded-3xl border border-white/5 bg-[#16161C] p-4.5 shadow-xl shadow-black/40">
         <div className="flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-xs font-black tracking-wider text-white uppercase">
@@ -1328,13 +1356,13 @@ export function WorkoutForm({ onSubmitWorkout, onSubmitSuccess }: WorkoutFormPro
         </div>
       )}
 
-      {/* 6. ГЛАВНАЯ КНОПКА СОХРАНЕНИЯ: HIGH-VOLTAGE CYBER LIME #C4F124 */}
+      {/* 9. ГЛАВНАЯ НЕОНОВАЯ КНОПКА СТАРТА / СОХРАНЕНИЯ: START WORKOUT ▶ */}
       <button
         type="submit"
         disabled={isSubmitting}
         className="w-full rounded-2xl bg-[#C4F124] py-4 text-sm font-black tracking-wider text-black uppercase shadow-xl shadow-[#C4F124]/25 transition-all duration-150 hover:bg-[#b0db1f] active:scale-[0.98] disabled:opacity-60"
       >
-        {isSubmitting ? 'Сохранение в облако...' : 'Сохранить тренировку'}
+        {isSubmitting ? 'Сохранение в облако...' : 'Завершить и сохранить тренировку ▶'}
       </button>
 
       {/* ПЛАВАЮЩИЙ ТАЙМЕР ОТДЫХА МЕЖДУ ПОДХОДАМИ */}
